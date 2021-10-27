@@ -46,7 +46,6 @@ TBD
 
 * [Nathaniel Brown](https://github.com/oma219)
 * [Massimiliano Rossi](https://github.com/maxrossi91)
-* Jamie Deng
 
 ### Theory (maybe?)
 
