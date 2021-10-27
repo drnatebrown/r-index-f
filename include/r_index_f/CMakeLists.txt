@@ -1,5 +1,4 @@
-set(RIF  r-index-f.hpp)
+set(RIF_SOURCES  r_index_f.hpp)
 
-add_library(r-index-f OBJECT ${MS_SOURCES})
-target_link_libraries(r-index-f common sdsl)
-target_include_directories(r-index-f PUBLIC "${r-index_SOURCE_DIR}/internal")
+add_library(r_index_f OBJECT ${RIF_SOURCES})
+target_link_libraries(r_index_f common sdsl)

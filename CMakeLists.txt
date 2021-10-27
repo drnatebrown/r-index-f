@@ -9,14 +9,15 @@
 # Set the minimum CMake version, the project name and default build type.
 # -----------------------------------------------------------------------------
 cmake_minimum_required(VERSION 3.15)
+set(CMAKE_BUILD_TYPE "Release")
 
 # Set the project name.
 project(r-index-f)
 
-# Set the default build type to Debug.
+# Set the default build type to Release.
 if(NOT CMAKE_BUILD_TYPE)
-  message(STATUS "Setting build type to 'Debug' as none was specified.")
-  set(CMAKE_BUILD_TYPE "Debug" CACHE STRING "Choose the type of build." FORCE)
+  message(STATUS "Setting build type to 'Release' as none was specified.")
+  set(CMAKE_BUILD_TYPE "Release" CACHE STRING "Choose the type of build." FORCE)
 endif()
 
 find_package(Git)
@@ -34,7 +35,7 @@ set(CMAKE_CXX_STANDARD 17)
 
 # Set the actual flags.
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall")
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Werror")
+#set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Werror")
 #set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -pedantic")
 #set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -pedantic-errors")
 
@@ -64,3 +65,4 @@ add_subdirectory(thirdparty)
 enable_testing()
 # Add the subdirectory containing the tests (which imports also their target).
 add_subdirectory(include)
+add_subdirectory(test/src)

@@ -1,4 +1,4 @@
-/* pfp-ds - prefix free parsing data structures
+/*  common
     Copyright (C) 2020 Massimiliano Rossi
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -32,7 +32,7 @@
 #include <sys/mman.h> // for mmap
 #include <unistd.h>
 #include <sys/stat.h>
- #include <fcntl.h>
+#include <fcntl.h>
 
 #include <sstream>      // std::stringstream
 

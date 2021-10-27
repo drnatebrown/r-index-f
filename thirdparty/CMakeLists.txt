@@ -80,3 +80,25 @@ if(NOT sdsl_POPULATED)
   
     add_subdirectory(${sdsl_SOURCE_DIR} ${sdsl_BINARY_DIR} EXCLUDE_FROM_ALL)
 endif()
+
+
+## Add divsuffsort
+FetchContent_Declare(
+    divsufsort
+    GIT_REPOSITORY https://github.com/simongog/libdivsufsort.git
+    GIT_TAG        2.0.1
+)
+
+FetchContent_GetProperties(divsufsort)
+if(NOT divsufsort_POPULATED)
+    FetchContent_Populate(divsufsort)
+
+    set(BUILD_SHARED_LIBS OFF CACHE BOOL "Do not build a shared library for libdivsufsort")
+    set(BUILD_EXAMPLES OFF CACHE BOOL "Do not build libdivsufsort example")
+    set(BUILD_DIVSUFSORT64 ON CACHE BOOL "Build libdivsufsort in 64-bits mode")
+
+    add_subdirectory(${divsufsort_SOURCE_DIR} ${divsufsort_BINARY_DIR} EXCLUDE_FROM_ALL)
+
+    target_include_directories(divsufsort PUBLIC "${divsufsort_BINARY_DIR}/include")
+    target_include_directories(divsufsort64 PUBLIC "${divsufsort_BINARY_DIR}/include")
+endif()
