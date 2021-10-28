@@ -51,6 +51,8 @@ int main(int argc, char *const argv[])
   verbose("Memory peak: ", malloc_count_peak());
   verbose("Elapsed time (s): ", std::chrono::duration<double, std::ratio<1>>(t_insert_end - t_insert_start).count());
 
+  verbose("Serliazing Table");
+
   std::string outfile = args.filename + rif.get_file_extension();
   std::ofstream out(outfile);
   rif.serialize(out);

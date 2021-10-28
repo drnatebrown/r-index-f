@@ -1,5 +1,5 @@
 /* rif_tests Performs benchmarks on the constructed R-Index-F
-    Copyright (C) 2020 Nathaniel Brown, Massimiliano Rossi
+    Copyright (C) 2020 Massimiliano Rossi
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
     the Free Software Foundation, either version 3 of the License, or
@@ -38,7 +38,7 @@ int main(int argc, char *const argv[])
     Args args;
     parseArgs(argc, argv, args);
 
-    verbose("Loading the R-Index-F from B-Table");
+    verbose("Loading the R-Index-F from LF-Table");
     std::chrono::high_resolution_clock::time_point t_insert_start = std::chrono::high_resolution_clock::now();
 
     r_index_f rif;
@@ -55,9 +55,9 @@ int main(int argc, char *const argv[])
     verbose("Memory peak: ", malloc_count_peak());
     verbose("Elapsed time (s): ", std::chrono::duration<double, std::ratio<1>>(t_insert_end - t_insert_start).count());
 
-    //rif.print_stats();
-    rif.get_char(0);
-    //rif.invert_bwt(args.filename);
+    rif.mem_stats();
+
+    rif.invert_bwt(args.filename);
     //rif.sample_LF(SAMPLES, SEED);
 
     return 0;

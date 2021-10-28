@@ -49,6 +49,8 @@ class r_index_f
 public:
     typedef size_t size_type;
     typedef unsigned long int ulint;
+    typedef rrr_vector<63> rrr_vec;
+    typedef rrr_vec::select_1_type select_bv;
 
     /*
     enum
@@ -64,7 +66,8 @@ public:
     {
         wt_huff<sdsl::rrr_vector<63>> heads;
         std::map<char, ulint> c_map;
-        std::map<char, rrr_vector<63>> c_diff;
+        std::map<char, select_bv> c_diff;
+        std::map<char, rrr_vec> c_bv;
         dac_vector<> lengths;
         dac_vector<> offsets;
     };
@@ -96,8 +99,8 @@ public:
         verbose("Memory peak: ", malloc_count_peak());
         verbose("Elapsed time (s): ", std::chrono::duration<double, std::ratio<1>>(t_insert_end - t_insert_start).count());
         mem_stats();
+
         invert_bwt(filename);
-        //bwt_stats();
     }
 
     vector<i_block> build_B_table(std::ifstream &heads, std::ifstream &lengths)
@@ -161,6 +164,7 @@ public:
         }
 
         ulint B_len = (r/block_size) + ((r % block_size) != 0);
+        cout << B_len << "\n";
         B_table = vector<i_block>(B_len);
 
         vector<char> block_chars = vector<char>(block_size);
@@ -207,19 +211,19 @@ public:
             {
                 i_block& curr = B_table[b];
 
-                curr.heads = wt_huff<rrr_vector<63>>();
+                curr.heads = wt_huff<rrr_vec>();
                 construct_im(curr.heads, std::string(block_chars.begin(), block_chars.end()), 1);
 
                 curr.lengths = dac_vector(block_lens);
                 curr.offsets = dac_vector(block_offsets);
                 curr.c_map = block_c_map;
 
-                std::map<char, rrr_vector<63>> block_c_diff;
+                std::map<char, rrr_vec> block_c_diff;
                 for (auto& kv: bit_diff) 
                 {
-                    block_c_diff.insert(std::pair(kv.first, rrr(kv.second)));
+                    curr.c_bv.insert(std::pair(kv.first, rrr(kv.second)));
+                    curr.c_diff.insert(std::pair(kv.first, select_bv(&curr.c_bv[kv.first])));
                 }
-                curr.c_diff = block_c_diff;
 
                 block_chars = vector<char>(block_size);
                 block_lens = vector<ulint>(block_size);
@@ -236,16 +240,16 @@ public:
         return B_table;
     }
 
-    rrr_vector<63> rrr(vector<bool> &b){
+    rrr_vec rrr(vector<bool> &b){
 
-		if(b.size()==0) return rrr_vector<63>();
+		if(b.size()==0) return rrr_vec();
 
 		bit_vector bv(b.size());
 
 		for(uint64_t i=0;i<b.size();++i)
 			bv[i] = b[i];
 
-		return rrr_vector<63>(bv);
+		return rrr_vec(bv);
 	}
 
     void mem_stats()
@@ -254,7 +258,7 @@ public:
 
         verbose("Memory consumption (bytes).");
         verbose("   Terminator_Position: ", sizeof(terminator_position));
-        verbose("              Block_Size:", sizeof(block_size));
+        //verbose("              Block_Size:", sizeof(block_size));
         verbose("              Block table: ", my_serialize_vector_of_structs(B_table, ns));
     }
 
@@ -345,45 +349,45 @@ public:
      */
     std::pair<ulint, ulint> LF(ulint run, ulint offset)
     {
-        //std::chrono::high_resolution_clock::time_point t_insert_start = std::chrono::high_resolution_clock::now();
+        std::chrono::high_resolution_clock::time_point t_insert_start = std::chrono::high_resolution_clock::now();
         ulint b = run/block_size;
-        //std::chrono::high_resolution_clock::time_point t_insert_end = std::chrono::high_resolution_clock::now();
-        //verbose("DIV: ", std::chrono::duration<double, std::ratio<1, 1000000000>>(t_insert_end - t_insert_start).count());
+        std::chrono::high_resolution_clock::time_point t_insert_end = std::chrono::high_resolution_clock::now();
+        verbose("DIV: ", std::chrono::duration<double, std::ratio<1, 1000000000>>(t_insert_end - t_insert_start).count());
         
-        //t_insert_start = std::chrono::high_resolution_clock::now();
+        t_insert_start = std::chrono::high_resolution_clock::now();
         ulint k = run%block_size;
-        //t_insert_end = std::chrono::high_resolution_clock::now();
-        //verbose("MOD: ", std::chrono::duration<double, std::ratio<1, 1000000000>>(t_insert_end - t_insert_start).count());
+        t_insert_end = std::chrono::high_resolution_clock::now();
+        verbose("MOD: ", std::chrono::duration<double, std::ratio<1, 1000000000>>(t_insert_end - t_insert_start).count());
 
-        //t_insert_start = std::chrono::high_resolution_clock::now();
+        t_insert_start = std::chrono::high_resolution_clock::now();
         i_block curr = B_table[b];
-        //t_insert_end = std::chrono::high_resolution_clock::now();
-        //verbose("LOOK: ", std::chrono::duration<double, std::ratio<1, 1000000000>>(t_insert_end - t_insert_start).count());
+        t_insert_end = std::chrono::high_resolution_clock::now();
+        verbose("LOOK: ", std::chrono::duration<double, std::ratio<1, 1000000000>>(t_insert_end - t_insert_start).count());
         
-        //t_insert_start = std::chrono::high_resolution_clock::now();
+        t_insert_start = std::chrono::high_resolution_clock::now();
         auto [d, c] = curr.heads.inverse_select(k);
-        //t_insert_end = std::chrono::high_resolution_clock::now();
-        //verbose("WT: ", std::chrono::duration<double, std::ratio<1, 1000000000>>(t_insert_end - t_insert_start).count());
+        t_insert_end = std::chrono::high_resolution_clock::now();
+        verbose("WT: ", std::chrono::duration<double, std::ratio<1, 1000000000>>(t_insert_end - t_insert_start).count());
 
         //t_insert_start = std::chrono::high_resolution_clock::now();
-        rrr_vector<63>::select_1_type rrr_select(&curr.c_diff[c]);
+        //rrr_vec::select_1_type rrr_select(&curr.c_diff[c]);
         //t_insert_end = std::chrono::high_resolution_clock::now();
         //verbose("BUILD_RRR: ", std::chrono::duration<double, std::ratio<1, 1000000000>>(t_insert_end - t_insert_start).count());
 
-        //t_insert_start = std::chrono::high_resolution_clock::now();
-        ulint s = rrr_select(d+1);
-        //t_insert_end = std::chrono::high_resolution_clock::now();
-        //verbose("BV-Select: ", std::chrono::duration<double, std::ratio<1, 1000000000>>(t_insert_end - t_insert_start).count());
+        t_insert_start = std::chrono::high_resolution_clock::now();
+        ulint s = curr.c_diff[c](d+1);
+        t_insert_end = std::chrono::high_resolution_clock::now();
+        verbose("BV-Select: ", std::chrono::duration<double, std::ratio<1, 1000000000>>(t_insert_end - t_insert_start).count());
 
-        //t_insert_start = std::chrono::high_resolution_clock::now();
-        //t_insert_end = std::chrono::high_resolution_clock::now();
+        t_insert_start = std::chrono::high_resolution_clock::now();
+        t_insert_end = std::chrono::high_resolution_clock::now();
         ulint q = curr.c_map[c] + s - d;
-        //verbose("MAP: ", std::chrono::duration<double, std::ratio<1, 1000000000>>(t_insert_end - t_insert_start).count());
+        verbose("MAP: ", std::chrono::duration<double, std::ratio<1, 1000000000>>(t_insert_end - t_insert_start).count());
 
-        //t_insert_start = std::chrono::high_resolution_clock::now();
+        t_insert_start = std::chrono::high_resolution_clock::now();
         offset += curr.offsets[k];
-        //t_insert_end = std::chrono::high_resolution_clock::now();
-        //verbose("DAC: ", std::chrono::duration<double, std::ratio<1, 1000000000>>(t_insert_end - t_insert_start).count());
+        t_insert_end = std::chrono::high_resolution_clock::now();
+        verbose("DAC: ", std::chrono::duration<double, std::ratio<1, 1000000000>>(t_insert_end - t_insert_start).count());
 
         ulint next_b = q/block_size;
         ulint next_k = q%block_size;
@@ -419,9 +423,9 @@ public:
 
         out.write((char *)&terminator_position, sizeof(terminator_position));
         written_bytes += sizeof(terminator_position);
-        out.write((char *)&block_size, sizeof(block_size));
-        written_bytes += sizeof(block_size);
-        written_bytes += my_serialize_vector_of_structs(B_table, out, child, "B_table");
+        //out.write((char *)&block_size, sizeof(block_size));
+        //written_bytes += sizeof(block_size);
+        written_bytes += my_serialize_vector_of_structs<i_block>(B_table, out, child, "B_table");
 
         sdsl::structure_tree::add_size(child, written_bytes);
         return written_bytes;
@@ -438,8 +442,8 @@ public:
     void load(std::istream &in)
     {
         in.read((char *)&terminator_position, sizeof(terminator_position));
-        in.read((char *)&block_size, sizeof(block_size));
-        my_load_vector_of_structs(B_table, in);
+        //in.read((char *)&block_size, sizeof(block_size));
+        my_load_vector_of_structs<i_block>(B_table, in);
     }
 };
 
