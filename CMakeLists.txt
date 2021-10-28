@@ -9,7 +9,7 @@
 # Set the minimum CMake version, the project name and default build type.
 # -----------------------------------------------------------------------------
 cmake_minimum_required(VERSION 3.15)
-set(CMAKE_BUILD_TYPE "Release")
+# set(CMAKE_BUILD_TYPE "Release")
 
 # Set the project name.
 project(r-index-f)

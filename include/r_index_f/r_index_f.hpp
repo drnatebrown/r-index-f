@@ -37,13 +37,14 @@
 #include <sdsl/wavelet_trees.hpp>
 #include <sdsl/dac_vector.hpp>
 
-static const int block_size = 1024;
+static const int block_size =  16384;
 
 using namespace sdsl;
 using namespace std;
 
 static const uint8_t TERMINATOR = 1;
 
+// template<size_t block_size = 1024>
 class r_index_f
 {
 public:
@@ -70,6 +71,95 @@ public:
         std::map<char, rrr_vec> c_bv;
         dac_vector<> lengths;
         dac_vector<> offsets;
+
+        /* serialize the structure to the ostream
+        * \param out     the ostream
+        */
+        size_type serialize(std::ostream &out, sdsl::structure_tree_node *v = nullptr, std::string name = "") // const
+        {
+            sdsl::structure_tree_node *child = sdsl::structure_tree::add_child(v, name, sdsl::util::class_name(*this));
+            size_type written_bytes = 0;
+
+            written_bytes += heads.serialize(out,v,"Heads");
+
+            // Serialize c_map
+            size_t size = c_map.size();
+            out.write((char *)&size, sizeof(size_t));
+            written_bytes += sizeof(size);
+            for(auto const& [key, val] : c_map)
+            {
+                out.write((char *)&key, sizeof(key));
+                written_bytes += sizeof(key);                
+                out.write((char *)&val, sizeof(val));
+                written_bytes += sizeof(val);                
+            }
+                
+            // // Serialize c_diff
+            // size = c_diff.size()
+            // out.write((char *)&size, sizeof(size_t));
+            // written_bytes += sizeof(size);
+            // for(auto const& [key, val] : c_diff)
+            // {
+            //     out.write((char *)&key, sizeof(key));
+            //     written_bytes += sizeof(key);                
+            //     written_bytes += val.serialize(out,v,"SelectBV_" + std::string(key));                
+            // }
+                
+            // Serialize c_bv
+            size = c_bv.size();
+            out.write((char *)&size, sizeof(size_t));
+            written_bytes += sizeof(size);
+            for(auto const& [key, val] : c_bv)
+            {
+                out.write((char *)&key, sizeof(key));
+                written_bytes += sizeof(key);                
+                written_bytes += val.serialize(out,v,"rrr_vec_" + std::to_string(key));                
+            }
+                
+
+            written_bytes += lengths.serialize(out,v,"Lengths");
+            written_bytes += offsets.serialize(out,v,"Offsets");
+
+            sdsl::structure_tree::add_size(child, written_bytes);
+            return written_bytes;
+        }
+
+            /* load the structure from the istream
+            * \param in the istream
+            */
+            void load(std::istream &in)
+            {
+                heads.load(in);
+
+                // Load c_map
+                size_t size;
+                in.read((char *)&size, sizeof(size));
+                for(size_t i = 0; i < size; ++i)
+                {
+                    char key;
+                    ulint val;
+                    in.read((char *)&key, sizeof(key));
+                    in.read((char *)&val, sizeof(val));
+                    c_map[key] = val;
+
+                }
+
+                // Load c_bv
+                in.read((char *)&size, sizeof(size));
+                for(size_t i = 0; i < size; ++i)
+                {
+                    char key;
+                    rrr_vec val;
+                    in.read((char *)&key, sizeof(key));
+                    val.load(in);
+                    c_bv[key] = val;
+                    select_bv tmp(&c_bv[key]);
+                    c_diff[key] = tmp;
+                }
+
+                lengths.load(in);
+                offsets.load(in);
+            }
     };
 
     ulint terminator_position;
@@ -100,7 +190,7 @@ public:
         verbose("Elapsed time (s): ", std::chrono::duration<double, std::ratio<1>>(t_insert_end - t_insert_start).count());
         mem_stats();
 
-        invert_bwt(filename);
+        // invert_bwt(filename);
     }
 
     vector<i_block> build_B_table(std::ifstream &heads, std::ifstream &lengths)
@@ -425,7 +515,12 @@ public:
         written_bytes += sizeof(terminator_position);
         //out.write((char *)&block_size, sizeof(block_size));
         //written_bytes += sizeof(block_size);
-        written_bytes += my_serialize_vector_of_structs<i_block>(B_table, out, child, "B_table");
+        size_t size = B_table.size();
+        out.write((char *)&size, sizeof(size));
+        written_bytes += sizeof(size);
+
+        for(size_t i = 0; i < size; ++i)
+            written_bytes += B_table[i].serialize(out,v,"B_table_" + std::to_string(i));
 
         sdsl::structure_tree::add_size(child, written_bytes);
         return written_bytes;
@@ -443,7 +538,11 @@ public:
     {
         in.read((char *)&terminator_position, sizeof(terminator_position));
         //in.read((char *)&block_size, sizeof(block_size));
-        my_load_vector_of_structs<i_block>(B_table, in);
+        size_t size;
+        in.read((char *)&size, sizeof(size));
+        B_table = std::vector<i_block>(size);
+        for(size_t i = 0; i < size; ++i)
+            B_table[i].load(in);
     }
 };
 

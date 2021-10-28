@@ -56,6 +56,7 @@ int main(int argc, char *const argv[])
   std::string outfile = args.filename + rif.get_file_extension();
   std::ofstream out(outfile);
   rif.serialize(out);
+  out.close();
 
   t_insert_end = std::chrono::high_resolution_clock::now();
 
