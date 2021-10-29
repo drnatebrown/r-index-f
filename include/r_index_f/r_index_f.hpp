@@ -29,7 +29,6 @@
 #include <algorithm>
 #include <random>
 #include <vector>
-
 #include <malloc_count.h>
 
 #include <sdsl/rmq_support.hpp>
@@ -37,7 +36,7 @@
 #include <sdsl/wavelet_trees.hpp>
 #include <sdsl/dac_vector.hpp>
 
-static const int block_size =  16384;
+static const int block_size = 2048;
 
 using namespace sdsl;
 using namespace std;
@@ -51,7 +50,10 @@ public:
     typedef size_t size_type;
     typedef unsigned long int ulint;
     typedef rrr_vector<63> rrr_vec;
-    typedef rrr_vec::select_1_type select_bv;
+    typedef rrr_vec::rank_1_type rrr_rank;
+    typedef rrr_vec::select_1_type rrr_select_1;
+    typedef rrr_vec::select_0_type rrr_select_0;
+    typedef wt_huff<bit_vector> wt_rif;
 
     /*
     enum
@@ -65,9 +67,9 @@ public:
 
     struct i_block
     {
-        wt_huff<sdsl::rrr_vector<63>> heads;
+        wt_rif heads;
         std::map<char, ulint> c_map;
-        std::map<char, select_bv> c_diff;
+        std::map<char, rrr_select_1> c_diff;
         std::map<char, rrr_vec> c_bv;
         dac_vector<> lengths;
         dac_vector<> offsets;
@@ -153,7 +155,7 @@ public:
                     in.read((char *)&key, sizeof(key));
                     val.load(in);
                     c_bv[key] = val;
-                    select_bv tmp(&c_bv[key]);
+                    rrr_select_1 tmp(&c_bv[key]);
                     c_diff[key] = tmp;
                 }
 
@@ -301,7 +303,7 @@ public:
             {
                 i_block& curr = B_table[b];
 
-                curr.heads = wt_huff<rrr_vec>();
+                curr.heads = wt_rif();
                 construct_im(curr.heads, std::string(block_chars.begin(), block_chars.end()), 1);
 
                 curr.lengths = dac_vector(block_lens);
@@ -312,7 +314,7 @@ public:
                 for (auto& kv: bit_diff) 
                 {
                     curr.c_bv.insert(std::pair(kv.first, rrr(kv.second)));
-                    curr.c_diff.insert(std::pair(kv.first, select_bv(&curr.c_bv[kv.first])));
+                    curr.c_diff.insert(std::pair(kv.first, rrr_select_1(&curr.c_bv[kv.first])));
                 }
 
                 block_chars = vector<char>(block_size);
@@ -375,15 +377,14 @@ public:
         char c;
         while((c = get_char(run)) > TERMINATOR) 
         {
-            //std::chrono::high_resolution_clock::time_point LF_insert_start = std::chrono::high_resolution_clock::now();
+            std::chrono::high_resolution_clock::time_point LF_insert_start = std::chrono::high_resolution_clock::now();
             std::pair<ulint, ulint> block_pair = LF(run, offset);
             run = block_pair.first;
             offset = block_pair.second;
 
             ++steps;
-
-            //std::chrono::high_resolution_clock::time_point LF_insert_end = std::chrono::high_resolution_clock::now();
-            //verbose("Step: ", std::chrono::duration<double, std::ratio<1, 1000000000>>(LF_insert_end - LF_insert_start).count());
+            std::chrono::high_resolution_clock::time_point LF_insert_end = std::chrono::high_resolution_clock::now();
+            verbose("Step: ", std::chrono::duration<double, std::ratio<1, 1000000000>>(LF_insert_end - LF_insert_start).count());
         }
         std::chrono::high_resolution_clock::time_point t_insert_end = std::chrono::high_resolution_clock::now();
         verbose("BWT Inverted using B Table");
@@ -439,53 +440,43 @@ public:
      */
     std::pair<ulint, ulint> LF(ulint run, ulint offset)
     {
+
         std::chrono::high_resolution_clock::time_point t_insert_start = std::chrono::high_resolution_clock::now();
-        ulint b = run/block_size;
+        i_block& curr = B_table[run/block_size];
         std::chrono::high_resolution_clock::time_point t_insert_end = std::chrono::high_resolution_clock::now();
-        verbose("DIV: ", std::chrono::duration<double, std::ratio<1, 1000000000>>(t_insert_end - t_insert_start).count());
-        
+        verbose("LOOK: ", std::chrono::duration<double, std::ratio<1, 1000000000>>(t_insert_end - t_insert_start).count());
         t_insert_start = std::chrono::high_resolution_clock::now();
-        ulint k = run%block_size;
+        const ulint k = run%block_size;
         t_insert_end = std::chrono::high_resolution_clock::now();
         verbose("MOD: ", std::chrono::duration<double, std::ratio<1, 1000000000>>(t_insert_end - t_insert_start).count());
-
-        t_insert_start = std::chrono::high_resolution_clock::now();
-        i_block curr = B_table[b];
-        t_insert_end = std::chrono::high_resolution_clock::now();
-        verbose("LOOK: ", std::chrono::duration<double, std::ratio<1, 1000000000>>(t_insert_end - t_insert_start).count());
         
         t_insert_start = std::chrono::high_resolution_clock::now();
-        auto [d, c] = curr.heads.inverse_select(k);
+        const auto [d, c] = curr.heads.inverse_select(k);
         t_insert_end = std::chrono::high_resolution_clock::now();
         verbose("WT: ", std::chrono::duration<double, std::ratio<1, 1000000000>>(t_insert_end - t_insert_start).count());
 
         //t_insert_start = std::chrono::high_resolution_clock::now();
-        //rrr_vec::select_1_type rrr_select(&curr.c_diff[c]);
+        //ulint s = curr.c_diff[c](d+1);
         //t_insert_end = std::chrono::high_resolution_clock::now();
-        //verbose("BUILD_RRR: ", std::chrono::duration<double, std::ratio<1, 1000000000>>(t_insert_end - t_insert_start).count());
+        //verbose("BV-Select: ", std::chrono::duration<double, std::ratio<1, 1000000000>>(t_insert_end - t_insert_start).count());
 
         t_insert_start = std::chrono::high_resolution_clock::now();
-        ulint s = curr.c_diff[c](d+1);
+        ulint q = curr.c_map[c] + curr.c_diff[c](d+1) - d;
         t_insert_end = std::chrono::high_resolution_clock::now();
-        verbose("BV-Select: ", std::chrono::duration<double, std::ratio<1, 1000000000>>(t_insert_end - t_insert_start).count());
-
-        t_insert_start = std::chrono::high_resolution_clock::now();
-        t_insert_end = std::chrono::high_resolution_clock::now();
-        ulint q = curr.c_map[c] + s - d;
         verbose("MAP: ", std::chrono::duration<double, std::ratio<1, 1000000000>>(t_insert_end - t_insert_start).count());
 
         t_insert_start = std::chrono::high_resolution_clock::now();
-        offset += curr.offsets[k];
+        ulint off = offset + curr.offsets[k];
         t_insert_end = std::chrono::high_resolution_clock::now();
         verbose("DAC: ", std::chrono::duration<double, std::ratio<1, 1000000000>>(t_insert_end - t_insert_start).count());
 
         ulint next_b = q/block_size;
         ulint next_k = q%block_size;
-        i_block next = B_table[next_b];
-
-	    while (offset >= next.lengths[next_k]) 
+        i_block& next = B_table[next_b];
+        ulint next_len;
+	    while (off >= (next_len = next.lengths[next_k])) 
         {
-            offset -= next.lengths[next_k];
+            off -= next_len;
             ++next_k;
             ++q;
 
