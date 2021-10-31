@@ -36,43 +36,99 @@
 #include <sdsl/wavelet_trees.hpp>
 #include <sdsl/dac_vector.hpp>
 
-static const int block_size = 2048;
-
 using namespace sdsl;
 using namespace std;
 
 static const uint8_t TERMINATOR = 1;
+static const int block_size = 1048576;
 
-// template<size_t block_size = 1024>
 class r_index_f
 {
 public:
     typedef size_t size_type;
     typedef unsigned long int ulint;
-    typedef rrr_vector<63> rrr_vec;
-    typedef rrr_vec::rank_1_type rrr_rank;
-    typedef rrr_vec::select_1_type rrr_select_1;
-    typedef rrr_vec::select_0_type rrr_select_0;
+    typedef bit_vector bit_vec;
+    typedef bit_vector::select_1_type bv_select_1;
     typedef wt_huff<bit_vector> wt_rif;
 
-    /*
-    enum
-    {
-        BIT_A = 0x0;
-        BIT_C = 0x1;
-        BIT_G = 0x2;
-        BIT_T = 0x3;
-    }
-    */
+    // enum
+    // {
+    //     BIT_A = 0x0;
+    //     BIT_C = 0x1;
+    //     BIT_G = 0x2;
+    //     BIT_T = 0x3;
+    // }
 
     struct i_block
     {
         wt_rif heads;
-        std::map<char, ulint> c_map;
-        std::map<char, rrr_select_1> c_diff;
-        std::map<char, rrr_vec> c_bv;
+
+        ulint A_map;
+        bv_select_1 A_diff;
+        bit_vec A_bv;
+
+        ulint C_map;
+        bv_select_1 C_diff;
+        bit_vec C_bv;
+
+        ulint G_map;
+        bv_select_1 G_diff;
+        bit_vec G_bv;
+
+        ulint T_map;
+        bv_select_1 T_diff;
+        bit_vec T_bv;
+
+        std::unordered_map<char, ulint> else_map;
+        std::unordered_map<char, bv_select_1> else_diff;
+        std::map<char, bit_vec> else_bv;
+
         dac_vector<> lengths;
         dac_vector<> offsets;
+
+        const ulint get_interval(const char c, const ulint d)
+        {
+            //std::chrono::high_resolution_clock::time_point t_insert_start;
+            //std::chrono::high_resolution_clock::time_point t_insert_end;
+            ulint s;
+            switch(c)
+            {
+                case 'A':
+                    //t_insert_start = std::chrono::high_resolution_clock::now();
+                    s = A_diff(d+1);
+                    //t_insert_end = std::chrono::high_resolution_clock::now();
+                    //verbose("RRR_SELECT: ", std::chrono::duration<double, std::ratio<1, 1000000000>>(t_insert_end - t_insert_start).count());
+                    return A_map + s - d;
+
+                case 'C':
+                    //t_insert_start = std::chrono::high_resolution_clock::now();
+                    s = C_diff(d+1);
+                    //t_insert_end = std::chrono::high_resolution_clock::now();
+                    //verbose("RRR_SELECT: ", std::chrono::duration<double, std::ratio<1, 1000000000>>(t_insert_end - t_insert_start).count());
+                    return C_map + s - d;
+
+                case 'G':
+                    //t_insert_start = std::chrono::high_resolution_clock::now();
+                    s = G_diff(d+1);
+                    //t_insert_end = std::chrono::high_resolution_clock::now();
+                    //verbose("RRR_SELECT: ", std::chrono::duration<double, std::ratio<1, 1000000000>>(t_insert_end - t_insert_start).count());
+                    return G_map + s - d;
+
+                case 'T':
+                    //t_insert_start = std::chrono::high_resolution_clock::now();
+                    s = T_diff(d+1);
+                    //t_insert_end = std::chrono::high_resolution_clock::now();
+                    //verbose("RRR_SELECT: ", std::chrono::duration<double, std::ratio<1, 1000000000>>(t_insert_end - t_insert_start).count());
+                    return T_map + s - d;
+
+                default:
+                    //t_insert_start = std::chrono::high_resolution_clock::now();
+                    s = else_diff[c](d+1);
+                    //t_insert_end = std::chrono::high_resolution_clock::now();
+                    //verbose("RRR_SELECT: ", std::chrono::duration<double, std::ratio<1, 1000000000>>(t_insert_end - t_insert_start).count());
+                    return else_map[c] + s - d;
+            }
+        }
 
         /* serialize the structure to the ostream
         * \param out     the ostream
@@ -83,41 +139,43 @@ public:
             size_type written_bytes = 0;
 
             written_bytes += heads.serialize(out,v,"Heads");
+            
+            out.write((char *)&A_map, sizeof(A_map));
+            written_bytes += sizeof(A_map);
+            written_bytes += A_bv.serialize(out,v,"A_bv");
+            
+            out.write((char *)&C_map, sizeof(C_map));
+            written_bytes += sizeof(C_map);
+            written_bytes += C_bv.serialize(out,v,"C_bv");
 
-            // Serialize c_map
-            size_t size = c_map.size();
+            out.write((char *)&G_map, sizeof(G_map));
+            written_bytes += sizeof(G_map);
+            written_bytes += G_bv.serialize(out,v,"G_bv");
+
+            out.write((char *)&T_map, sizeof(T_map));
+            written_bytes += sizeof(T_map);
+            written_bytes += T_bv.serialize(out,v,"T_bv");
+
+            size_t size = else_map.size();
             out.write((char *)&size, sizeof(size_t));
             written_bytes += sizeof(size);
-            for(auto const& [key, val] : c_map)
+            for(auto const& [key, val] : else_map)
             {
                 out.write((char *)&key, sizeof(key));
                 written_bytes += sizeof(key);                
                 out.write((char *)&val, sizeof(val));
                 written_bytes += sizeof(val);                
             }
-                
-            // // Serialize c_diff
-            // size = c_diff.size()
-            // out.write((char *)&size, sizeof(size_t));
-            // written_bytes += sizeof(size);
-            // for(auto const& [key, val] : c_diff)
-            // {
-            //     out.write((char *)&key, sizeof(key));
-            //     written_bytes += sizeof(key);                
-            //     written_bytes += val.serialize(out,v,"SelectBV_" + std::string(key));                
-            // }
-                
-            // Serialize c_bv
-            size = c_bv.size();
+
+            size = else_bv.size();
             out.write((char *)&size, sizeof(size_t));
             written_bytes += sizeof(size);
-            for(auto const& [key, val] : c_bv)
+            for(auto const& [key, val] : else_bv)
             {
                 out.write((char *)&key, sizeof(key));
                 written_bytes += sizeof(key);                
-                written_bytes += val.serialize(out,v,"rrr_vec_" + std::to_string(key));                
+                written_bytes += val.serialize(out,v,"else_bv_" + std::to_string(key));                
             }
-                
 
             written_bytes += lengths.serialize(out,v,"Lengths");
             written_bytes += offsets.serialize(out,v,"Offsets");
@@ -126,47 +184,65 @@ public:
             return written_bytes;
         }
 
-            /* load the structure from the istream
-            * \param in the istream
-            */
-            void load(std::istream &in)
+        /* load the structure from the istream
+        * \param in the istream
+        */
+        void load(std::istream &in)
+        {
+            heads.load(in);
+            
+            in.read((char *)&A_map, sizeof(A_map));
+            A_bv.load(in);
+            A_diff = bv_select_1(&A_bv);
+
+            in.read((char *)&C_map, sizeof(C_map));
+            C_bv.load(in);
+            C_diff = bv_select_1(&C_bv);
+
+            in.read((char *)&G_map, sizeof(G_map));
+            G_bv.load(in);
+            G_diff = bv_select_1(&G_bv);
+
+            in.read((char *)&T_map, sizeof(T_map));
+            T_bv.load(in);
+            T_diff = bv_select_1(&T_bv);
+
+            size_t size;
+            in.read((char *)&size, sizeof(size));
+            for(size_t i = 0; i < size; ++i)
             {
-                heads.load(in);
-
-                // Load c_map
-                size_t size;
-                in.read((char *)&size, sizeof(size));
-                for(size_t i = 0; i < size; ++i)
-                {
-                    char key;
-                    ulint val;
-                    in.read((char *)&key, sizeof(key));
-                    in.read((char *)&val, sizeof(val));
-                    c_map[key] = val;
-
-                }
-
-                // Load c_bv
-                in.read((char *)&size, sizeof(size));
-                for(size_t i = 0; i < size; ++i)
-                {
-                    char key;
-                    rrr_vec val;
-                    in.read((char *)&key, sizeof(key));
-                    val.load(in);
-                    c_bv[key] = val;
-                    rrr_select_1 tmp(&c_bv[key]);
-                    c_diff[key] = tmp;
-                }
-
-                lengths.load(in);
-                offsets.load(in);
+                char key;
+                ulint val;
+                in.read((char *)&key, sizeof(key));
+                in.read((char *)&val, sizeof(val));
+                else_map[key] = val;
             }
+
+            in.read((char *)&size, sizeof(size));
+            for(size_t i = 0; i < size; ++i)
+            {
+                char key;
+                bit_vec val;
+                in.read((char *)&key, sizeof(key));
+                val.load(in);
+                else_bv[key] = val;
+                else_diff[key] = bv_select_1(&else_bv[key]);
+            }
+
+            lengths.load(in);
+            offsets.load(in);
+        }
     };
 
-    ulint terminator_position;
+    ulint terminator_run;
+    ulint n;
+    ulint r;
     vector<i_block> B_table; 
 
+    vector<char> chars;
+    vector<ulint> lens;
+    vector<ulint> intervals;
+    vector<ulint> offsets;
     r_index_f() {}
 
     r_index_f(std::string filename)
@@ -191,8 +267,7 @@ public:
         verbose("Memory peak: ", malloc_count_peak());
         verbose("Elapsed time (s): ", std::chrono::duration<double, std::ratio<1>>(t_insert_end - t_insert_start).count());
         mem_stats();
-
-        // invert_bwt(filename);
+        bwt_stats();
     }
 
     vector<i_block> build_B_table(std::ifstream &heads, std::ifstream &lengths)
@@ -203,11 +278,12 @@ public:
         lengths.seekg(0);
         
         vector<vector<size_t>> L_block_indices = vector<vector<size_t>>(256);
-        vector<char> chars = vector<char>(); 
-        vector<ulint> lens = vector<ulint>();
+        chars = vector<char>(); 
+        lens = vector<ulint>();
         
         char c;
         ulint i = 0;
+        n = 0;
         while ((c = heads.get()) != EOF)
         {
             size_t length = 0;
@@ -223,15 +299,16 @@ public:
                 chars.push_back(TERMINATOR);
                 lens.push_back(length);
                 L_block_indices[TERMINATOR].push_back(i);
-                terminator_position = i;
+                terminator_run = i;
             }
             ++i;
+            n+=length;
         }
         
-        ulint r = chars.size();
+        r = chars.size();
 
-        vector<ulint> intervals = vector<ulint>(r);
-        vector<ulint> offsets = vector<ulint>(r);
+        intervals = vector<ulint>(r);
+        offsets = vector<ulint>(r);
 
         ulint curr_L_num = 0;
         ulint L_seen = 0;
@@ -256,7 +333,6 @@ public:
         }
 
         ulint B_len = (r/block_size) + ((r % block_size) != 0);
-        cout << B_len << "\n";
         B_table = vector<i_block>(B_len);
 
         vector<char> block_chars = vector<char>(block_size);
@@ -275,6 +351,8 @@ public:
             ulint l = lens[i];
             ulint k = intervals[i];
             ulint d = offsets[i];
+
+            //cerr << c << "\t" << l << "\t" << k << "\t" << d << "\n";
 
             block_chars[b_i] = c;
             block_lens[b_i] = l;
@@ -299,24 +377,51 @@ public:
             ++b_i;
 
             // End of block of intervals, update block table
-            if (i/block_size > b || i == r)
+            if (b_i >= block_size || i >= r)
             {
                 i_block& curr = B_table[b];
 
-                curr.heads = wt_rif();
-                construct_im(curr.heads, std::string(block_chars.begin(), block_chars.end()), 1);
+                construct_im(curr.heads, std::string(block_chars.begin(), (i >= r) ? block_chars.begin()+b_i : block_chars.end()).c_str(), 1);
+
+                for (auto& kv: bit_diff) 
+                {
+                    switch(kv.first)
+                    {
+                        case 'A':
+                            curr.A_map = block_c_map['A'];
+                            curr.A_bv = bv(kv.second);
+                            curr.A_diff = bv_select_1(&curr.A_bv);
+                            break;
+
+                        case 'C':
+                            curr.C_map = block_c_map['C'];
+                            curr.C_bv = bv(kv.second);
+                            curr.C_diff = bv_select_1(&curr.C_bv);
+                            break;
+
+                        case 'G':
+                            curr.G_map = block_c_map['G'];
+                            curr.G_bv = bv(kv.second);
+                            curr.G_diff = bv_select_1(&curr.G_bv);
+                            break;
+
+                        case 'T':
+                            curr.T_map = block_c_map['T'];
+                            curr.T_bv = bv(kv.second);
+                            curr.T_diff = bv_select_1(&curr.T_bv);
+                            break;
+
+                        default:
+                            curr.else_map.insert(std::pair<char, ulint>(kv.first, block_c_map[kv.first]));
+                            curr.else_bv.insert(std::pair<char, bit_vec>(kv.first, bv(kv.second)));
+                            curr.else_diff.insert(std::pair<char, bv_select_1>(kv.first, bv_select_1(&curr.else_bv[kv.first])));
+                            break;
+                    }
+                }
 
                 curr.lengths = dac_vector(block_lens);
                 curr.offsets = dac_vector(block_offsets);
-                curr.c_map = block_c_map;
-
-                std::map<char, rrr_vec> block_c_diff;
-                for (auto& kv: bit_diff) 
-                {
-                    curr.c_bv.insert(std::pair(kv.first, rrr(kv.second)));
-                    curr.c_diff.insert(std::pair(kv.first, rrr_select_1(&curr.c_bv[kv.first])));
-                }
-
+                
                 block_chars = vector<char>(block_size);
                 block_lens = vector<ulint>(block_size);
                 block_offsets = vector<ulint>(block_size);
@@ -332,6 +437,7 @@ public:
         return B_table;
     }
 
+    /*
     rrr_vec rrr(vector<bool> &b){
 
 		if(b.size()==0) return rrr_vec();
@@ -343,27 +449,38 @@ public:
 
 		return rrr_vec(bv);
 	}
+    */
+
+    bit_vec bv(vector<bool> &b){
+
+		if(b.size()==0) return bit_vector();
+
+		bit_vector bv(b.size());
+
+		for(uint64_t i=0;i<b.size();++i)
+			bv[i] = b[i];
+
+		return bv;
+	}
 
     void mem_stats()
     {
         sdsl::nullstream ns;
 
         verbose("Memory consumption (bytes).");
-        verbose("   Terminator_Position: ", sizeof(terminator_position));
+        verbose("   Terminator_Run: ", sizeof(terminator_run));
         //verbose("              Block_Size:", sizeof(block_size));
-        verbose("              Block table: ", my_serialize_vector_of_structs(B_table, ns));
+        verbose("              Block table: ", serialize(ns));
     }
 
-    /*
     void bwt_stats()
     {
         verbose("Number of BWT equal-letter runs: r = ", r);
-        verbose("Length of complete BWT: n = ", );
+        verbose("Length of complete BWT: n = ", n);
         verbose("Rate n/r = ", double(n) / r);
         verbose("log2(r) = ", log2(double(r)));
         verbose("log2(n/r) = ", log2(double(n) / r));
     }
-    */
 
     // Lives here for now, can move into tests if we expose the LF Table
     void invert_bwt(std::string filename) 
@@ -377,28 +494,27 @@ public:
         char c;
         while((c = get_char(run)) > TERMINATOR) 
         {
-            std::chrono::high_resolution_clock::time_point LF_insert_start = std::chrono::high_resolution_clock::now();
+            //cerr << c << "\n";
+            //std::chrono::high_resolution_clock::time_point LF_insert_start = std::chrono::high_resolution_clock::now();
             std::pair<ulint, ulint> block_pair = LF(run, offset);
             run = block_pair.first;
             offset = block_pair.second;
 
             ++steps;
-            std::chrono::high_resolution_clock::time_point LF_insert_end = std::chrono::high_resolution_clock::now();
-            verbose("Step: ", std::chrono::duration<double, std::ratio<1, 1000000000>>(LF_insert_end - LF_insert_start).count());
+            //std::chrono::high_resolution_clock::time_point LF_insert_end = std::chrono::high_resolution_clock::now();
+            //verbose("Step: ", std::chrono::duration<double, std::ratio<1, 1000000000>>(LF_insert_end - LF_insert_start).count());
         }
         std::chrono::high_resolution_clock::time_point t_insert_end = std::chrono::high_resolution_clock::now();
         verbose("BWT Inverted using B Table");
         verbose("Elapsed time (s): ", std::chrono::duration<double, std::ratio<1>>(t_insert_end - t_insert_start).count());
         verbose("Average step (ns): ", std::chrono::duration<double, std::ratio<1, 1000000000>>((t_insert_end - t_insert_start)/steps).count());
 
-        /*
-        std::ofstream recovered_output(filename + ".LF_recovered");
-        std::reverse(recovered.begin(), recovered.end());
-        std::string recovered_string = string(recovered.begin(), recovered.end());
-        recovered_output << recovered_string;
-        recovered_output.close();
-        verbose("Recovered text written to", filename + ".LF_recovered");
-        */
+        // std::ofstream recovered_output(filename + ".LF_recovered");
+        // std::reverse(recovered.begin(), recovered.end());
+        // std::string recovered_string = string(recovered.begin(), recovered.end());
+        // recovered_output << recovered_string;
+        // recovered_output.close();
+        // verbose("Recovered text written to", filename + ".LF_recovered");
     }
     
     /*
@@ -440,49 +556,44 @@ public:
      */
     std::pair<ulint, ulint> LF(ulint run, ulint offset)
     {
-
-        std::chrono::high_resolution_clock::time_point t_insert_start = std::chrono::high_resolution_clock::now();
-        i_block& curr = B_table[run/block_size];
-        std::chrono::high_resolution_clock::time_point t_insert_end = std::chrono::high_resolution_clock::now();
-        verbose("LOOK: ", std::chrono::duration<double, std::ratio<1, 1000000000>>(t_insert_end - t_insert_start).count());
-        t_insert_start = std::chrono::high_resolution_clock::now();
-        const ulint k = run%block_size;
-        t_insert_end = std::chrono::high_resolution_clock::now();
-        verbose("MOD: ", std::chrono::duration<double, std::ratio<1, 1000000000>>(t_insert_end - t_insert_start).count());
-        
-        t_insert_start = std::chrono::high_resolution_clock::now();
-        const auto [d, c] = curr.heads.inverse_select(k);
-        t_insert_end = std::chrono::high_resolution_clock::now();
-        verbose("WT: ", std::chrono::duration<double, std::ratio<1, 1000000000>>(t_insert_end - t_insert_start).count());
+        //std::chrono::high_resolution_clock::time_point t_insert_start = std::chrono::high_resolution_clock::now();
+        i_block* curr = &B_table[run/block_size];
+        //std::chrono::high_resolution_clock::time_point t_insert_end = std::chrono::high_resolution_clock::now();
+        //verbose("LOOK: ", std::chrono::duration<double, std::ratio<1, 1000000000>>(t_insert_end - t_insert_start).count());
 
         //t_insert_start = std::chrono::high_resolution_clock::now();
-        //ulint s = curr.c_diff[c](d+1);
+        const ulint k = run%block_size;
         //t_insert_end = std::chrono::high_resolution_clock::now();
-        //verbose("BV-Select: ", std::chrono::duration<double, std::ratio<1, 1000000000>>(t_insert_end - t_insert_start).count());
+        //verbose("MOD: ", std::chrono::duration<double, std::ratio<1, 1000000000>>(t_insert_end - t_insert_start).count());
+        
+        //t_insert_start = std::chrono::high_resolution_clock::now();
+        const auto [d, c] = curr->heads.inverse_select(k);
+        //t_insert_end = std::chrono::high_resolution_clock::now();
+        //verbose("WT: ", std::chrono::duration<double, std::ratio<1, 1000000000>>(t_insert_end - t_insert_start).count());
 
-        t_insert_start = std::chrono::high_resolution_clock::now();
-        ulint q = curr.c_map[c] + curr.c_diff[c](d+1) - d;
-        t_insert_end = std::chrono::high_resolution_clock::now();
-        verbose("MAP: ", std::chrono::duration<double, std::ratio<1, 1000000000>>(t_insert_end - t_insert_start).count());
+        //t_insert_start = std::chrono::high_resolution_clock::now();
+        ulint q = curr->get_interval(c, d);
+        //t_insert_end = std::chrono::high_resolution_clock::now();
+        //verbose("GET_INTERVAL: ", std::chrono::duration<double, std::ratio<1, 1000000000>>(t_insert_end - t_insert_start).count());
 
-        t_insert_start = std::chrono::high_resolution_clock::now();
-        ulint off = offset + curr.offsets[k];
-        t_insert_end = std::chrono::high_resolution_clock::now();
-        verbose("DAC: ", std::chrono::duration<double, std::ratio<1, 1000000000>>(t_insert_end - t_insert_start).count());
+        //t_insert_start = std::chrono::high_resolution_clock::now();
+        offset += curr->offsets[k];
+        //t_insert_end = std::chrono::high_resolution_clock::now();
+        //verbose("DAC: ", std::chrono::duration<double, std::ratio<1, 1000000000>>(t_insert_end - t_insert_start).count());
 
         ulint next_b = q/block_size;
         ulint next_k = q%block_size;
-        i_block& next = B_table[next_b];
+        i_block* next = &B_table[next_b];
         ulint next_len;
-	    while (off >= (next_len = next.lengths[next_k])) 
+	    while (offset >= (next_len = next->lengths[next_k])) 
         {
-            off -= next_len;
+            offset -= next_len;
             ++next_k;
             ++q;
 
             if (next_k >= block_size)
             {
-                next = B_table[++next_b];
+                next = &B_table[++next_b];
                 next_k = 0;
             }
         }
@@ -491,7 +602,7 @@ public:
     }
 
     char get_char(ulint run) {
-        return B_table[run/block_size].heads[run%block_size];
+        return (char) B_table[run/block_size].heads[run%block_size];
     }
 
     /* serialize the structure to the ostream
@@ -502,8 +613,8 @@ public:
         sdsl::structure_tree_node *child = sdsl::structure_tree::add_child(v, name, sdsl::util::class_name(*this));
         size_type written_bytes = 0;
 
-        out.write((char *)&terminator_position, sizeof(terminator_position));
-        written_bytes += sizeof(terminator_position);
+        out.write((char *)&terminator_run, sizeof(terminator_run));
+        written_bytes += sizeof(terminator_run);
         //out.write((char *)&block_size, sizeof(block_size));
         //written_bytes += sizeof(block_size);
         size_t size = B_table.size();
@@ -527,13 +638,15 @@ public:
      */
     void load(std::istream &in)
     {
-        in.read((char *)&terminator_position, sizeof(terminator_position));
+        in.read((char *)&terminator_run, sizeof(terminator_run));
         //in.read((char *)&block_size, sizeof(block_size));
         size_t size;
         in.read((char *)&size, sizeof(size));
         B_table = std::vector<i_block>(size);
         for(size_t i = 0; i < size; ++i)
+        {
             B_table[i].load(in);
+        }
     }
 };
 

@@ -59,6 +59,7 @@ int main(int argc, char *const argv[])
 
     rif.invert_bwt(args.filename);
     //rif.sample_LF(SAMPLES, SEED);
+    //rif.print_table();
 
     return 0;
 }
