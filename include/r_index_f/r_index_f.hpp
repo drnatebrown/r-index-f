@@ -23,6 +23,7 @@
 #define _R_INDEX_F_HH
 
 #include <common.hpp>
+#include <dac.hpp>
 
 #include <utility>
 #include <iostream> 
@@ -40,7 +41,7 @@ using namespace sdsl;
 using namespace std;
 
 static const uint8_t TERMINATOR = 1;
-static const int block_size = 1048576;
+static const int block_size = 524288;
 
 class r_index_f
 {
@@ -83,8 +84,8 @@ public:
         std::unordered_map<char, bv_select_1> else_diff;
         std::unordered_map<char, bit_vec> else_bv;
 
-        dac_vector<> lengths;
-        dac_vector<> offsets;
+        dac lengths;
+        dac offsets;
 
         const ulint get_interval(const char c, const ulint d)
         {
@@ -352,7 +353,7 @@ public:
             ulint k = intervals[i];
             ulint d = offsets[i];
 
-            //cerr << c << "\t" << l << "\t" << k << "\t" << d << "\n";
+            cerr << c << "\t" << l << "\t" << k << "\t" << d << "\n";
 
             block_chars[b_i] = c;
             block_lens[b_i] = l;
@@ -419,8 +420,8 @@ public:
                     }
                 }
 
-                curr.lengths = dac_vector(block_lens);
-                curr.offsets = dac_vector(block_offsets);
+                curr.lengths = dac(block_lens);
+                curr.offsets = dac(block_offsets);
                 
                 block_chars = vector<char>(block_size);
                 block_lens = vector<ulint>(block_size);
@@ -646,6 +647,17 @@ public:
         for(size_t i = 0; i < size; ++i)
         {
             B_table[i].load(in);
+        }
+    }
+
+    void print_table()
+    {
+        for(ulint i=0; i<12823516; ++i){
+            auto [d, c] = B_table[i/block_size].heads.inverse_select(i%block_size);
+            ulint q = B_table[i/block_size].get_interval(c, d);
+            ulint o = B_table[i/block_size].offsets[i%block_size];
+            ulint l = B_table[i/block_size].lengths[i%block_size];
+            cerr << c << "\t" << l << "\t" << q << "\t" << o << "\n";
         }
     }
 };
