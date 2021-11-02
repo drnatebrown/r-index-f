@@ -81,7 +81,7 @@ public:
 
         std::unordered_map<char, ulint> else_map;
         std::unordered_map<char, bv_select_1> else_diff;
-        std::map<char, bit_vec> else_bv;
+        std::unordered_map<char, bit_vec> else_bv;
 
         dac_vector<> lengths;
         dac_vector<> offsets;
