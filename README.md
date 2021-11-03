@@ -52,6 +52,11 @@ make
 * [Nathaniel Brown](https://github.com/oma219)
 * [Massimiliano Rossi](https://github.com/maxrossi91)
 
+### Theory
+* Nathaniel Brown
+* Travis Gagie
+* Massimiliano Rossi
+
 # References
 
 [1] Nishimoto, T., & Tabei, Y. (2020). Optimal-Time Queries on BWT-runs Compressed Indexes. arXiv preprint arXiv:2006.05104.
