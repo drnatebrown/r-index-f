@@ -9,26 +9,31 @@
 ```
 -->
 
-R-Index-F Library for Pattern Matching
+R-Index-F Library for String Indexing
 
 Implemented and adapted from original work by Takaaki Nishimoto and Yasuo Tabei [1].
 
-This library uses a simplified approach which follows the theory of the original paper. We stores blocks consisting of full BWT-runs rather than sub-runs.
+This library uses a simplified approach which follows the theory of the original paper. We store intervals consisting of full BWT-runs rather than sub-runs, representing a maximal interval mapping, and a custom block compression. Joint work with Travis Gagie and Massimiliano Rossi.
 
-*Current Version:* 0.1.0 TBD
+Efficiently performs decompression and count queries using interval mapping of BWT-runs.
 
-# Usage
-TBD
+*Current Version:* 0.1.0
 
 # Example
 ### Download and Compile
 
 ```console
+git clone https://github.com/drnatebrown/r-index-f.git
+
+mkdir build & cd build
+cmake ..
+make
 ```
 
 ### Build on Example Data
 
 ```console
+[build script in progress]
 ```
 
 # External Dependencies
@@ -37,8 +42,8 @@ TBD
     * [gSACA-K](https://github.com/felipelouza/gsa-is.git)
     * [malloc_count](https://github.com/bingmann/malloc_count)
 * [sdsl-lite](https://github.com/simongog/sdsl-lite)
-<!-- * [Google Benchmark](https://github.com/google/benchmark.git)
-    * [Google Test](https://github.com/google/googletest) -->
+* [Google Benchmark](https://github.com/google/benchmark.git)
+    * [Google Test](https://github.com/google/googletest)
 
 # Authors
 
@@ -46,8 +51,6 @@ TBD
 
 * [Nathaniel Brown](https://github.com/oma219)
 * [Massimiliano Rossi](https://github.com/maxrossi91)
-
-### Theory (maybe?)
 
 # References
 
