@@ -1,5 +1,5 @@
 /* build_rif - Build the simple R-Index-F tablke
-    Copyright (C) 2020 Massimiliano Rossi
+    Copyright (C) 2021 Nathaniel Brown
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
     the Free Software Foundation, either version 3 of the License, or
@@ -14,9 +14,9 @@
 /*!
    \file build_LF_table.cpp
    \brief build_LF_table.cpp Build the simple R-Index-F table.
-   \author Massimiliano Rossi
    \author Nathaniel Brown
-   \date 03/03/2021
+   \author Massimiliano Rossi
+   \date 02/11/2021
 */
 
 #include <iostream>
@@ -24,11 +24,8 @@
 #define VERBOSE
 
 #include <common.hpp>
-
 #include <sdsl/io.hpp>
-
 #include <r_index_f.hpp>
-
 #include <malloc_count.h>
 
 
@@ -43,7 +40,7 @@ int main(int argc, char *const argv[])
   std::chrono::high_resolution_clock::time_point t_insert_start = std::chrono::high_resolution_clock::now();
 
   
-  r_index_f rif(args.filename);
+  r_index_f<> rif(args.filename);
 
   std::chrono::high_resolution_clock::time_point t_insert_end = std::chrono::high_resolution_clock::now();
 

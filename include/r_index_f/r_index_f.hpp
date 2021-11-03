@@ -40,28 +40,21 @@ using namespace sdsl;
 using namespace std;
 
 static const uint8_t TERMINATOR = 1;
-static const int block_size = 1048576;
+typedef unsigned long int ulint;
 
+template    <ulint block_size = 1048576,
+            class wt_t = wt_huff<bit_vector>,
+            class bit_vec = bit_vector,
+            class dac_vec = dac_vector<>>
 class r_index_f
 {
 public:
     typedef size_t size_type;
-    typedef unsigned long int ulint;
-    typedef bit_vector bit_vec;
     typedef bit_vector::select_1_type bv_select_1;
-    typedef wt_huff<bit_vector> wt_rif;
-
-    // enum
-    // {
-    //     BIT_A = 0x0;
-    //     BIT_C = 0x1;
-    //     BIT_G = 0x2;
-    //     BIT_T = 0x3;
-    // }
 
     struct i_block
     {
-        wt_rif heads;
+        wt_t heads;
 
         ulint A_map;
         bv_select_1 A_diff;
@@ -83,50 +76,27 @@ public:
         std::unordered_map<char, bv_select_1> else_diff;
         std::unordered_map<char, bit_vec> else_bv;
 
-        dac_vector<> lengths;
-        dac_vector<> offsets;
+        dac_vec lengths;
+        dac_vec offsets;
 
         const ulint get_interval(const char c, const ulint d)
         {
-            //std::chrono::high_resolution_clock::time_point t_insert_start;
-            //std::chrono::high_resolution_clock::time_point t_insert_end;
-            ulint s;
             switch(c)
             {
                 case 'A':
-                    //t_insert_start = std::chrono::high_resolution_clock::now();
-                    s = A_diff(d+1);
-                    //t_insert_end = std::chrono::high_resolution_clock::now();
-                    //verbose("RRR_SELECT: ", std::chrono::duration<double, std::ratio<1, 1000000000>>(t_insert_end - t_insert_start).count());
-                    return A_map + s - d;
+                    return A_map + A_diff(d+1) - d;
 
                 case 'C':
-                    //t_insert_start = std::chrono::high_resolution_clock::now();
-                    s = C_diff(d+1);
-                    //t_insert_end = std::chrono::high_resolution_clock::now();
-                    //verbose("RRR_SELECT: ", std::chrono::duration<double, std::ratio<1, 1000000000>>(t_insert_end - t_insert_start).count());
-                    return C_map + s - d;
+                    return C_map + C_diff(d+1) - d;
 
                 case 'G':
-                    //t_insert_start = std::chrono::high_resolution_clock::now();
-                    s = G_diff(d+1);
-                    //t_insert_end = std::chrono::high_resolution_clock::now();
-                    //verbose("RRR_SELECT: ", std::chrono::duration<double, std::ratio<1, 1000000000>>(t_insert_end - t_insert_start).count());
-                    return G_map + s - d;
+                    return G_map + G_diff(d+1) - d;
 
                 case 'T':
-                    //t_insert_start = std::chrono::high_resolution_clock::now();
-                    s = T_diff(d+1);
-                    //t_insert_end = std::chrono::high_resolution_clock::now();
-                    //verbose("RRR_SELECT: ", std::chrono::duration<double, std::ratio<1, 1000000000>>(t_insert_end - t_insert_start).count());
-                    return T_map + s - d;
+                    return T_map + T_diff(d+1) - d;
 
                 default:
-                    //t_insert_start = std::chrono::high_resolution_clock::now();
-                    s = else_diff[c](d+1);
-                    //t_insert_end = std::chrono::high_resolution_clock::now();
-                    //verbose("RRR_SELECT: ", std::chrono::duration<double, std::ratio<1, 1000000000>>(t_insert_end - t_insert_start).count());
-                    return else_map[c] + s - d;
+                    return else_map[c] + else_diff[c](d+1) - d;
             }
         }
 
@@ -234,15 +204,10 @@ public:
         }
     };
 
-    ulint terminator_run;
     ulint n;
     ulint r;
     vector<i_block> B_table; 
 
-    vector<char> chars;
-    vector<ulint> lens;
-    vector<ulint> intervals;
-    vector<ulint> offsets;
     r_index_f() {}
 
     r_index_f(std::string filename)
@@ -278,8 +243,8 @@ public:
         lengths.seekg(0);
         
         vector<vector<size_t>> L_block_indices = vector<vector<size_t>>(256);
-        chars = vector<char>(); 
-        lens = vector<ulint>();
+        vector<char> chars = vector<char>(); 
+        vector<ulint> lens = vector<ulint>();
         
         char c;
         ulint i = 0;
@@ -299,7 +264,6 @@ public:
                 chars.push_back(TERMINATOR);
                 lens.push_back(length);
                 L_block_indices[TERMINATOR].push_back(i);
-                terminator_run = i;
             }
             ++i;
             n+=length;
@@ -307,8 +271,8 @@ public:
         
         r = chars.size();
 
-        intervals = vector<ulint>(r);
-        offsets = vector<ulint>(r);
+        vector<ulint> intervals = vector<ulint>(r);
+        vector<ulint> offsets = vector<ulint>(r);
 
         ulint curr_L_num = 0;
         ulint L_seen = 0;
@@ -338,9 +302,9 @@ public:
         vector<char> block_chars = vector<char>(block_size);
         vector<ulint> block_lens = vector<ulint>(block_size);
         vector<ulint> block_offsets = vector<ulint>(block_size);
-        std::map<char, ulint> block_c_map = std::map<char, ulint>();
-        std::map<char, ulint> last_c_map = std::map<char, ulint>();
-        std::map<char, vector<bool>> bit_diff = std::map<char, vector<bool>>();
+        std::unordered_map<char, ulint> block_c_map = std::unordered_map<char, ulint>();
+        std::unordered_map<char, ulint> last_c_map = std::unordered_map<char, ulint>();
+        std::unordered_map<char, vector<bool>> bit_diff = std::unordered_map<char, vector<bool>>();
 
         ulint b = 0;
         ulint b_i = 0;
@@ -351,8 +315,6 @@ public:
             ulint l = lens[i];
             ulint k = intervals[i];
             ulint d = offsets[i];
-
-            //cerr << c << "\t" << l << "\t" << k << "\t" << d << "\n";
 
             block_chars[b_i] = c;
             block_lens[b_i] = l;
@@ -419,15 +381,15 @@ public:
                     }
                 }
 
-                curr.lengths = dac_vector(block_lens);
-                curr.offsets = dac_vector(block_offsets);
+                curr.lengths = dac_vec(block_lens);
+                curr.offsets = dac_vec(block_offsets);
                 
                 block_chars = vector<char>(block_size);
                 block_lens = vector<ulint>(block_size);
                 block_offsets = vector<ulint>(block_size);
-                block_c_map = std::map<char, ulint>();
-                last_c_map = std::map<char, ulint>();
-                bit_diff = std::map<char, vector<bool>>();
+                block_c_map = std::unordered_map<char, ulint>();
+                last_c_map = std::unordered_map<char, ulint>();
+                bit_diff = std::unordered_map<char, vector<bool>>();
 
                 ++b;
                 b_i = 0;
@@ -436,20 +398,6 @@ public:
 
         return B_table;
     }
-
-    /*
-    rrr_vec rrr(vector<bool> &b){
-
-		if(b.size()==0) return rrr_vec();
-
-		bit_vector bv(b.size());
-
-		for(uint64_t i=0;i<b.size();++i)
-			bv[i] = b[i];
-
-		return rrr_vec(bv);
-	}
-    */
 
     bit_vec bv(vector<bool> &b){
 
@@ -460,94 +408,8 @@ public:
 		for(uint64_t i=0;i<b.size();++i)
 			bv[i] = b[i];
 
-		return bv;
+		return bit_vector(bv);
 	}
-
-    void mem_stats()
-    {
-        sdsl::nullstream ns;
-
-        verbose("Memory consumption (bytes).");
-        verbose("   Terminator_Run: ", sizeof(terminator_run));
-        //verbose("              Block_Size:", sizeof(block_size));
-        verbose("              Block table: ", serialize(ns));
-    }
-
-    void bwt_stats()
-    {
-        verbose("Number of BWT equal-letter runs: r = ", r);
-        verbose("Length of complete BWT: n = ", n);
-        verbose("Rate n/r = ", double(n) / r);
-        verbose("log2(r) = ", log2(double(r)));
-        verbose("log2(n/r) = ", log2(double(n) / r));
-    }
-
-    // Lives here for now, can move into tests if we expose the LF Table
-    void invert_bwt(std::string filename) 
-    {
-        verbose("Inverting BWT using R-Index-F (B table)");
-        std::chrono::high_resolution_clock::time_point t_insert_start = std::chrono::high_resolution_clock::now();
-        //vector<char> recovered = vector<char>();
-        ulint steps = 0;
-        ulint run = 0;
-        ulint offset = 0;
-        char c;
-        while((c = get_char(run)) > TERMINATOR) 
-        {
-            //cerr << c << "\n";
-            //std::chrono::high_resolution_clock::time_point LF_insert_start = std::chrono::high_resolution_clock::now();
-            std::pair<ulint, ulint> block_pair = LF(run, offset);
-            run = block_pair.first;
-            offset = block_pair.second;
-
-            ++steps;
-            //std::chrono::high_resolution_clock::time_point LF_insert_end = std::chrono::high_resolution_clock::now();
-            //verbose("Step: ", std::chrono::duration<double, std::ratio<1, 1000000000>>(LF_insert_end - LF_insert_start).count());
-        }
-        std::chrono::high_resolution_clock::time_point t_insert_end = std::chrono::high_resolution_clock::now();
-        verbose("BWT Inverted using B Table");
-        verbose("Elapsed time (s): ", std::chrono::duration<double, std::ratio<1>>(t_insert_end - t_insert_start).count());
-        verbose("Average step (ns): ", std::chrono::duration<double, std::ratio<1, 1000000000>>((t_insert_end - t_insert_start)/steps).count());
-
-        // std::ofstream recovered_output(filename + ".LF_recovered");
-        // std::reverse(recovered.begin(), recovered.end());
-        // std::string recovered_string = string(recovered.begin(), recovered.end());
-        // recovered_output << recovered_string;
-        // recovered_output.close();
-        // verbose("Recovered text written to", filename + ".LF_recovered");
-    }
-    
-    /*
-    void sample_LF(size_t samples, unsigned seed)
-    {
-        verbose("Running random sample of LF steps for R-Index-F (LF table):");
-        std::mt19937_64 gen(seed);
-        std::uniform_int_distribution<ulint> dist(0, this->bwt.size());
-        vector<std::pair<ulint, ulint>> pos = vector<std::pair<ulint, ulint>>(samples);
-        vector<std::pair<ulint, ulint>> next_pos = vector<std::pair<ulint, ulint>>(samples);
-        
-        for(size_t i = 0; i < pos.size(); ++i)
-        {
-            pos[i] = position_to_table(dist(gen));
-        }
-        std::chrono::high_resolution_clock::time_point t_insert_start = std::chrono::high_resolution_clock::now();
-        for(size_t i = 0; i < pos.size(); ++i)
-        {
-            next_pos[i] = LF(pos[i].first, pos[i].second);
-        }
-        std::chrono::high_resolution_clock::time_point t_insert_end = std::chrono::high_resolution_clock::now();
-        /*
-        for(size_t i = 0; i < next_pos.size(); ++i)
-        {
-            ulint pos = this->bwt.run_range(next_pos[i].first).first + next_pos[i].second;
-            cerr << pos << "\n";
-        }
-        
-        verbose("Elapsed time (s): ", std::chrono::duration<double, std::ratio<1>>(t_insert_end - t_insert_start).count());
-        verbose("Average step (ns): ", std::chrono::duration<double, std::ratio<1, 1000000000>>((t_insert_end - t_insert_start)/samples).count());
-        verbose("# of samples: ", samples);
-    }
-    */
 
     /*
      * \param Run position (RLBWT)
@@ -556,30 +418,12 @@ public:
      */
     std::pair<ulint, ulint> LF(ulint run, ulint offset)
     {
-        //std::chrono::high_resolution_clock::time_point t_insert_start = std::chrono::high_resolution_clock::now();
         i_block* curr = &B_table[run/block_size];
-        //std::chrono::high_resolution_clock::time_point t_insert_end = std::chrono::high_resolution_clock::now();
-        //verbose("LOOK: ", std::chrono::duration<double, std::ratio<1, 1000000000>>(t_insert_end - t_insert_start).count());
-
-        //t_insert_start = std::chrono::high_resolution_clock::now();
         const ulint k = run%block_size;
-        //t_insert_end = std::chrono::high_resolution_clock::now();
-        //verbose("MOD: ", std::chrono::duration<double, std::ratio<1, 1000000000>>(t_insert_end - t_insert_start).count());
-        
-        //t_insert_start = std::chrono::high_resolution_clock::now();
+
         const auto [d, c] = curr->heads.inverse_select(k);
-        //t_insert_end = std::chrono::high_resolution_clock::now();
-        //verbose("WT: ", std::chrono::duration<double, std::ratio<1, 1000000000>>(t_insert_end - t_insert_start).count());
-
-        //t_insert_start = std::chrono::high_resolution_clock::now();
         ulint q = curr->get_interval(c, d);
-        //t_insert_end = std::chrono::high_resolution_clock::now();
-        //verbose("GET_INTERVAL: ", std::chrono::duration<double, std::ratio<1, 1000000000>>(t_insert_end - t_insert_start).count());
-
-        //t_insert_start = std::chrono::high_resolution_clock::now();
         offset += curr->offsets[k];
-        //t_insert_end = std::chrono::high_resolution_clock::now();
-        //verbose("DAC: ", std::chrono::duration<double, std::ratio<1, 1000000000>>(t_insert_end - t_insert_start).count());
 
         ulint next_b = q/block_size;
         ulint next_k = q%block_size;
@@ -601,8 +445,26 @@ public:
 	    return std::make_pair(q, offset);
     }
 
-    char get_char(ulint run) {
+    char get_char(ulint run) 
+    {
         return (char) B_table[run/block_size].heads[run%block_size];
+    }
+
+    void mem_stats()
+    {
+        sdsl::nullstream ns;
+
+        verbose("Memory consumption (bytes).");
+        verbose("              Block table: ", serialize(ns));
+    }
+
+    void bwt_stats()
+    {
+        verbose("Number of BWT equal-letter runs: r = ", r);
+        verbose("Length of complete BWT: n = ", n);
+        verbose("Rate n/r = ", double(n) / r);
+        verbose("log2(r) = ", log2(double(r)));
+        verbose("log2(n/r) = ", log2(double(n) / r));
     }
 
     /* serialize the structure to the ostream
@@ -613,10 +475,6 @@ public:
         sdsl::structure_tree_node *child = sdsl::structure_tree::add_child(v, name, sdsl::util::class_name(*this));
         size_type written_bytes = 0;
 
-        out.write((char *)&terminator_run, sizeof(terminator_run));
-        written_bytes += sizeof(terminator_run);
-        //out.write((char *)&block_size, sizeof(block_size));
-        //written_bytes += sizeof(block_size);
         size_t size = B_table.size();
         out.write((char *)&size, sizeof(size));
         written_bytes += sizeof(size);
@@ -638,8 +496,6 @@ public:
      */
     void load(std::istream &in)
     {
-        in.read((char *)&terminator_run, sizeof(terminator_run));
-        //in.read((char *)&block_size, sizeof(block_size));
         size_t size;
         in.read((char *)&size, sizeof(size));
         B_table = std::vector<i_block>(size);

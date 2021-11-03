@@ -1,5 +1,5 @@
 /* rif_tests Performs benchmarks on the constructed R-Index-F
-    Copyright (C) 2020 Massimiliano Rossi
+    Copyright (C) 2021 Nathaniel Brown
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
     the Free Software Foundation, either version 3 of the License, or
@@ -14,24 +14,41 @@
 /*!
    \file rif_tests.cpp
    \brief rif_tests Benchmark tests on the R-Index-F
-   \author Massimiliano Rossi
    \author Nathaniel Brown
-   \date 03/03/2021
+   \author Massimiliano Rossi
+   \date 02/11/2021
 */
 
 #include <iostream>
 #include <fstream> 
 
 #define VERBOSE
-#define SAMPLES 100000000
-#define SEED 23
 
 #include <common.hpp>
-
 #include <r_index_f.hpp>
-
 #include <malloc_count.h>
 
+void invert_bwt(r_index_f<> rif) 
+{
+    verbose("Inverting BWT using R-Index-F (B table)");
+    std::chrono::high_resolution_clock::time_point t_insert_start = std::chrono::high_resolution_clock::now();
+    ulint steps = 0;
+    ulint run = 0;
+    ulint offset = 0;
+    char c;
+    while((c = rif.get_char(run)) > TERMINATOR) 
+    {
+        std::pair<ulint, ulint> block_pair = rif.LF(run, offset);
+        run = block_pair.first;
+        offset = block_pair.second;
+
+        ++steps;
+    }
+    std::chrono::high_resolution_clock::time_point t_insert_end = std::chrono::high_resolution_clock::now();
+    verbose("BWT Inverted using B Table");
+    verbose("Elapsed time (s): ", std::chrono::duration<double, std::ratio<1>>(t_insert_end - t_insert_start).count());
+    verbose("Average step (ns): ", std::chrono::duration<double, std::ratio<1, 1000000000>>((t_insert_end - t_insert_start)/steps).count());
+}
 
 int main(int argc, char *const argv[])
 {
@@ -41,7 +58,7 @@ int main(int argc, char *const argv[])
     verbose("Loading the R-Index-F from LF-Table");
     std::chrono::high_resolution_clock::time_point t_insert_start = std::chrono::high_resolution_clock::now();
 
-    r_index_f rif;
+    r_index_f<> rif;
 
     std::string filename_rif = args.filename + rif.get_file_extension();
 
@@ -56,17 +73,7 @@ int main(int argc, char *const argv[])
     verbose("Elapsed time (s): ", std::chrono::duration<double, std::ratio<1>>(t_insert_end - t_insert_start).count());
 
     rif.mem_stats();
-
-    rif.invert_bwt(args.filename);
-    //rif.sample_LF(SAMPLES, SEED);
-    //rif.print_table();
+    invert_bwt(rif);
 
     return 0;
 }
-
-/* Can move test only methods here, as extensions of base class
-class r_index_f_test : public ToBeTested, public testing::Test
-{
-   // Empty - bridge to protected members for unit-testing
-}
-*/
