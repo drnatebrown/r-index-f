@@ -412,9 +412,9 @@ public:
 	}
 
     /*
-     * \param 
      * \param Run position (RLBWT)
-     * \param Current character offset in block
+     * \param Current offset within interval
+     * \param Character to step from
      * \return run position and offset of preceding character
      */
     std::pair<ulint, ulint> LF(ulint run, ulint offset, char c)
