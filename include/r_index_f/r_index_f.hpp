@@ -412,17 +412,38 @@ public:
 	}
 
     /*
+     * \param 
      * \param Run position (RLBWT)
      * \param Current character offset in block
      * \return run position and offset of preceding character
      */
-    std::pair<ulint, ulint> LF(ulint run, ulint offset)
+    std::pair<ulint, ulint> LF(ulint run, ulint offset, char c)
     {
-        i_block* curr = &B_table[run/block_size];
-        const ulint k = run%block_size;
+        ulint b = run/block_size;
+        ulint k = run%block_size;
+        i_block* curr = &B_table[p_r];
 
-        const auto [d, c] = curr->heads.inverse_select(k);
-        ulint q = curr->get_interval(c, d);
+        auto [c_rank, bwt_c] = curr->heads.inverse_select(k);
+        if (c != bwt_c)
+        {
+            c_rank = curr->heads.rank(k, c);
+            while (c_rank == 0)
+            {
+                if (p_r == 0)
+                {
+                    error("No preceding character for position, cannot LF step");
+                    throw std::logic_error("Character" + util::to_string(c) + "does not occur anywhere preceding run" + util::to_string(run) +".");
+                }
+                curr =  &B_table[--b];
+                c_rank = curr->heads.rank(block_size, c);
+            }
+
+            k = curr->heads.select(k+1, c);
+            offset = curr->lengths[k] - 1;
+        }
+
+        ulint q = curr->get_interval(c, c_rank);
+
         offset += curr->offsets[k];
 
         ulint next_b = q/block_size;
