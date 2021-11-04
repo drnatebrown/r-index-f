@@ -421,7 +421,7 @@ public:
     {
         ulint b = run/block_size;
         ulint k = run%block_size;
-        i_block* curr = &B_table[p_r];
+        i_block* curr = &B_table[b];
 
         auto [c_rank, bwt_c] = curr->heads.inverse_select(k);
         if (c != bwt_c)
@@ -429,7 +429,7 @@ public:
             c_rank = curr->heads.rank(k, c);
             while (c_rank == 0)
             {
-                if (p_r == 0)
+                if (b == 0)
                 {
                     error("No preceding character for position, cannot LF step");
                     throw std::logic_error("Character" + util::to_string(c) + "does not occur anywhere preceding run" + util::to_string(run) +".");
