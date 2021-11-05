@@ -407,7 +407,45 @@ public:
 		return bit_vector(bv);
 	}
 
+    /* 
+     * LF step from the posision given
+     * \param Run position (RLBWT)
+     * \param Current character offset in block
+     * \return run position and offset of preceding character
+     */
+    std::pair<ulint, ulint> LF(ulint run, ulint offset)
+    {
+        assert(run < r);
+
+        i_block* curr = &B_table[run/block_size];
+        const ulint k = run%block_size;
+
+        const auto [d, c] = curr->heads.inverse_select(k);
+        ulint q = curr->get_interval(c, d);
+        offset += curr->offsets[k];
+
+        ulint next_b = q/block_size;
+        ulint next_k = q%block_size;
+        i_block* next = &B_table[next_b];
+        ulint next_len;
+	    while (offset >= (next_len = next->lengths[next_k])) 
+        {
+            offset -= next_len;
+            ++next_k;
+            ++q;
+
+            if (next_k >= block_size)
+            {
+                next = &B_table[++next_b];
+                next_k = 0;
+            }
+        }
+
+	    return std::make_pair(q, offset);
+    }
+
     /*
+     * LF Step from the character c at (or first preceding) position
      * \param Run position (RLBWT)
      * \param Current offset within interval
      * \param Character to step from
@@ -415,6 +453,8 @@ public:
      */
     std::pair<ulint, ulint> LF(ulint run, ulint offset, char c)
     {
+        assert(run < r);
+
         ulint b = run/block_size;
         ulint k = run%block_size;
         i_block* curr = &B_table[b];
