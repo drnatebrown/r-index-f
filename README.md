@@ -25,12 +25,12 @@ Efficiently performs decompression and count queries using interval mapping of B
 ```console
 git clone https://github.com/drnatebrown/r-index-f.git
 
-mkdir build & cd build
+mkdir build && cd build
 cmake ..
 make
 ```
 
-### Build on Example Data
+### Example
 
 ```console
 [build script in progress]
