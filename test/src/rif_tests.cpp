@@ -73,6 +73,7 @@ int main(int argc, char *const argv[])
     verbose("Elapsed time (s): ", std::chrono::duration<double, std::ratio<1>>(t_insert_end - t_insert_start).count());
 
     rif.mem_stats();
+    rif.bwt_stats();
     invert_bwt(rif);
 
     return 0;

@@ -204,10 +204,6 @@ public:
         }
     };
 
-    ulint n;
-    ulint r;
-    vector<i_block> B_table; 
-
     r_index_f() {}
 
     r_index_f(std::string filename)
@@ -471,6 +467,16 @@ public:
         return (char) B_table[run/block_size].heads[run%block_size];
     }
 
+    ulint number_of_runs()
+    {
+        return r;
+    }
+
+    ulint size()
+    {
+        return n;
+    }
+
     void mem_stats()
     {
         sdsl::nullstream ns;
@@ -496,6 +502,12 @@ public:
         sdsl::structure_tree_node *child = sdsl::structure_tree::add_child(v, name, sdsl::util::class_name(*this));
         size_type written_bytes = 0;
 
+        out.write((char *)&n, sizeof(n));
+        written_bytes += sizeof(n);
+
+        out.write((char *)&r, sizeof(r));
+        written_bytes += sizeof(r);
+
         size_t size = B_table.size();
         out.write((char *)&size, sizeof(size));
         written_bytes += sizeof(size);
@@ -518,6 +530,8 @@ public:
     void load(std::istream &in)
     {
         size_t size;
+        in.read((char *)&n, sizeof(n));
+        in.read((char *)&r, sizeof(r));
         in.read((char *)&size, sizeof(size));
         B_table = std::vector<i_block>(size);
         for(size_t i = 0; i < size; ++i)
@@ -525,6 +539,11 @@ public:
             B_table[i].load(in);
         }
     }
+
+private:
+    ulint n;
+    ulint r;
+    vector<i_block> B_table;
 };
 
 #endif /* end of include guard: _R_INDEX_F_HH */
