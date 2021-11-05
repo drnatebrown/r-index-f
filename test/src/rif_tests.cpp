@@ -38,7 +38,7 @@ void invert_bwt(r_index_f<> rif)
     char c;
     while((c = rif.get_char(run)) > TERMINATOR) 
     {
-        std::pair<ulint, ulint> block_pair = rif.LF(run, offset);
+        std::pair<ulint, ulint> block_pair = rif.LF(run, offset, c);
         run = block_pair.first;
         offset = block_pair.second;
 
@@ -55,7 +55,7 @@ int main(int argc, char *const argv[])
     Args args;
     parseArgs(argc, argv, args);
 
-    verbose("Loading the R-Index-F from LF-Table");
+    verbose("Loading the R-Index-F from B-Table");
     std::chrono::high_resolution_clock::time_point t_insert_start = std::chrono::high_resolution_clock::now();
 
     r_index_f<> rif;
@@ -73,6 +73,7 @@ int main(int argc, char *const argv[])
     verbose("Elapsed time (s): ", std::chrono::duration<double, std::ratio<1>>(t_insert_end - t_insert_start).count());
 
     rif.mem_stats();
+    rif.bwt_stats();
     invert_bwt(rif);
 
     return 0;

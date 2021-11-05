@@ -204,10 +204,6 @@ public:
         }
     };
 
-    ulint n;
-    ulint r;
-    vector<i_block> B_table; 
-
     r_index_f() {}
 
     r_index_f(std::string filename)
@@ -413,16 +409,37 @@ public:
 
     /*
      * \param Run position (RLBWT)
-     * \param Current character offset in block
+     * \param Current offset within interval
+     * \param Character to step from
      * \return run position and offset of preceding character
      */
-    std::pair<ulint, ulint> LF(ulint run, ulint offset)
+    std::pair<ulint, ulint> LF(ulint run, ulint offset, char c)
     {
-        i_block* curr = &B_table[run/block_size];
-        const ulint k = run%block_size;
+        ulint b = run/block_size;
+        ulint k = run%block_size;
+        i_block* curr = &B_table[b];
 
-        const auto [d, c] = curr->heads.inverse_select(k);
-        ulint q = curr->get_interval(c, d);
+        auto [c_rank, bwt_c] = curr->heads.inverse_select(k);
+        if (c != bwt_c)
+        {
+            c_rank = curr->heads.rank(k, c);
+            while (c_rank == 0)
+            {
+                if (b == 0)
+                {
+                    error("No preceding character for position, cannot LF step");
+                    throw std::logic_error("Character" + util::to_string(c) + "does not occur anywhere preceding run" + util::to_string(run) +".");
+                }
+                curr =  &B_table[--b];
+                c_rank = curr->heads.rank(block_size, c);
+            }
+
+            k = curr->heads.select(k+1, c);
+            offset = curr->lengths[k] - 1;
+        }
+
+        ulint q = curr->get_interval(c, c_rank);
+
         offset += curr->offsets[k];
 
         ulint next_b = q/block_size;
@@ -450,6 +467,16 @@ public:
         return (char) B_table[run/block_size].heads[run%block_size];
     }
 
+    ulint number_of_runs()
+    {
+        return r;
+    }
+
+    ulint size()
+    {
+        return n;
+    }
+
     void mem_stats()
     {
         sdsl::nullstream ns;
@@ -475,6 +502,12 @@ public:
         sdsl::structure_tree_node *child = sdsl::structure_tree::add_child(v, name, sdsl::util::class_name(*this));
         size_type written_bytes = 0;
 
+        out.write((char *)&n, sizeof(n));
+        written_bytes += sizeof(n);
+
+        out.write((char *)&r, sizeof(r));
+        written_bytes += sizeof(r);
+
         size_t size = B_table.size();
         out.write((char *)&size, sizeof(size));
         written_bytes += sizeof(size);
@@ -497,6 +530,8 @@ public:
     void load(std::istream &in)
     {
         size_t size;
+        in.read((char *)&n, sizeof(n));
+        in.read((char *)&r, sizeof(r));
         in.read((char *)&size, sizeof(size));
         B_table = std::vector<i_block>(size);
         for(size_t i = 0; i < size; ++i)
@@ -504,6 +539,11 @@ public:
             B_table[i].load(in);
         }
     }
+
+private:
+    ulint n;
+    ulint r;
+    vector<i_block> B_table;
 };
 
 #endif /* end of include guard: _R_INDEX_F_HH */
