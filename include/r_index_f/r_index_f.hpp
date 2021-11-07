@@ -555,7 +555,7 @@ public:
 
     char get_char(i_position pos) 
     {
-        return (char) B_table[pos.run/block_size].heads[pos.run%block_size];
+        return get_char(pos.run);
     }
 
     range_t full_range()
