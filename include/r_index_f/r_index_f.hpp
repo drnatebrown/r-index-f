@@ -581,7 +581,7 @@ public:
                     if (b == B_table.size()-1)
                     {
                         error("No succeding character for position, cannot LF step");
-                        throw std::logic_error("Character" + util::to_string(c) + "does not occur at or after position" + util::to_string(pos.run) +".");
+                        throw std::logic_error("Character" + util::to_string(c) + "does not occur at or after position" + util::to_string(first.run) +".");
                     }
                     curr =  &B_table[++b];
                     c_rank = 0;
