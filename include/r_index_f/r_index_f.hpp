@@ -578,7 +578,7 @@ public:
         // Walk back to solution
         if (pos_k > block_size/2 && pos_b != B_table.size() - 1)
         {
-            idx = B_table[pos_b].idx;
+            idx = B_table[pos_b+1].idx;
             k = block_size - 1;
             while (k >= pos_k)
             {
