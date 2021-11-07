@@ -520,7 +520,7 @@ public:
                 c_rank = curr->heads.rank(block_size, c);
             }
 
-            k = curr->heads.select(k+1, c);
+            k = curr->heads.select(c_rank+1, c);
             offset = curr->lengths[k] - 1;
         }
 
@@ -546,6 +546,73 @@ public:
         }
 
 	    return i_position{q, offset};
+    }
+
+    /*
+    * \param r inclusive range of a string w
+    * \param c character
+    * \return inclusive range of cw
+    */
+    range_t LF(range_t range, char c)
+    {
+        i_position* first = &range.first;
+        i_position* second = &range.second;
+        
+        assert(first.run < r);
+
+        ulint b = first.run/block_size;
+        ulint k = first.run%block_size;
+        i_block* curr = &B_table[b];
+
+        ulint offset = first.offset;
+        auto [c_rank, bwt_c] = curr->heads.inverse_select(k);
+        if (c != bwt_c)
+        {
+            bool found_c = false;
+            c_rank = curr->heads.rank(k, c) + 1;
+            while (!found_c)
+            {
+                try {
+                    k = curr->heads.select(c_rank + 1, c);
+                    found_c = true;
+                }
+                catch(std::logic_error &e)
+                {
+                    if (b == B_table.size()-1)
+                    {
+                        error("No succeding character for position, cannot LF step");
+                        throw std::logic_error("Character" + util::to_string(c) + "does not occur at or after position" + util::to_string(pos.run) +".");
+                    }
+                    curr =  &B_table[++b];
+                    c_rank = 0;
+                }
+            }
+
+            offset = 0;
+        }
+
+        ulint q = curr->get_interval(c, c_rank);
+
+        offset += curr->offsets[k];
+
+        ulint next_b = q/block_size;
+        ulint next_k = q%block_size;
+        i_block* next = &B_table[next_b];
+        ulint next_len;
+	    while (offset >= (next_len = next->lengths[next_k])) 
+        {
+            offset -= next_len;
+            ++next_k;
+            ++q;
+
+            if (next_k >= block_size)
+            {
+                next = &B_table[++next_b];
+                next_k = 0;
+            }
+        }
+
+        return range_t(i_position{q, offset}, LF(second, c));
     }
 
     char get_char(ulint run) 
