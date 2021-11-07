@@ -24,6 +24,7 @@ Efficiently performs decompression and count queries using interval mapping of B
 
 ```console
 git clone https://github.com/drnatebrown/r-index-f.git
+cd r-index-f
 
 mkdir build && cd build
 cmake ..
