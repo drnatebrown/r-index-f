@@ -73,11 +73,11 @@ public:
         }
 
         inline bool operator< (const i_position& pos){ return (run == pos.run) ? (offset < pos.offset) : (run < pos.run); }
-        inline bool operator> (const i_position& pos){ return pos < this; }
-        inline bool operator<=(const i_position& pos){ return !(this > pos); }
-        inline bool operator>=(const i_position& pos){ return !(this < pos); }
+        inline bool operator> (const i_position& pos){ return pos < *this; }
+        inline bool operator<=(const i_position& pos){ return !(*this > pos); }
+        inline bool operator>=(const i_position& pos){ return !(*this < pos); }
         inline bool operator==(const i_position& pos){ return run == pos.run && offset == pos.offset; }
-        inline bool operator!=(const i_position& pos){ return !(this == pos); }
+        inline bool operator!=(const i_position& pos){ return !(*this == pos); }
     };
 
     typedef size_t size_type;
@@ -582,7 +582,7 @@ public:
             k = block_size - 1;
             while (k >= pos_k)
             {
-                idx -= block.lengths[k];
+                idx -= block->lengths[k];
                 --k;
             }
         }
@@ -590,11 +590,11 @@ public:
         // Walk forward to solution
         else
         {
-            idx = block.idx;
+            idx = block->idx;
             k = 0;
             while (k < pos_k)
             {
-                idx += block.lengths[k];
+                idx += block->lengths[k];
                 ++k;
             }
         }
