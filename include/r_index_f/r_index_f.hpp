@@ -42,15 +42,47 @@ using namespace std;
 static const uint8_t TERMINATOR = 1;
 typedef unsigned long int ulint;
 
-template    <ulint block_size = 1048576,
+template  < ulint block_size = 1048576,
             class wt_t = wt_huff<bit_vector>,
             class bit_vec = bit_vector,
-            class dac_vec = dac_vector<>>
+            class dac_vec = dac_vector<> >
 class r_index_f
 {
 public:
+    struct i_position
+    {
+        ulint run;
+        ulint offset;
+
+        i_position& operator++() 
+        {
+            ++offset;
+            if (offset >= B_table[run/block_size].lengths[run%block_size])
+            {
+                ++run;
+                offset = 0;
+            }
+            return *this;
+        }
+
+        i_position operator++(int) 
+        {
+            i_position old = *this;
+            operator++();
+            return old;
+        }
+
+        inline bool operator< (const i_position& pos){ return (run == pos.run) ? (offset < pos.offset) : (run < pos.run); }
+        inline bool operator> (const i_position& pos){ return pos < *this; }
+        inline bool operator<=(const i_position& pos){ return !(*this > pos); }
+        inline bool operator>=(const i_position& pos){ return !(*this < pos); }
+        inline bool operator==(const i_position& pos){ return run == pos.run && offset == pos.offset; }
+        inline bool operator!=(const i_position& pos){ return !(*this == pos); }
+    };
+
     typedef size_t size_type;
     typedef bit_vector::select_1_type bv_select_1;
+    typedef std::pair<i_position, i_position> range_t;
 
     struct i_block
     {
@@ -78,6 +110,8 @@ public:
 
         dac_vec lengths;
         dac_vec offsets;
+
+        ulint idx;
 
         const ulint get_interval(const char c, const ulint d)
         {
@@ -150,6 +184,9 @@ public:
             written_bytes += lengths.serialize(out,v,"Lengths");
             written_bytes += offsets.serialize(out,v,"Offsets");
 
+            out.write((char *)&idx, sizeof(idx));
+            written_bytes += sizeof(idx);
+
             sdsl::structure_tree::add_size(child, written_bytes);
             return written_bytes;
         }
@@ -201,6 +238,8 @@ public:
 
             lengths.load(in);
             offsets.load(in);
+
+            in.read((char *)&idx, sizeof(idx));
         }
     };
 
@@ -301,6 +340,8 @@ public:
         std::unordered_map<char, ulint> block_c_map = std::unordered_map<char, ulint>();
         std::unordered_map<char, ulint> last_c_map = std::unordered_map<char, ulint>();
         std::unordered_map<char, vector<bool>> bit_diff = std::unordered_map<char, vector<bool>>();
+        ulint block_idx = 0;
+        ulint next_idx = 0;
 
         ulint b = 0;
         ulint b_i = 0;
@@ -315,6 +356,8 @@ public:
             block_chars[b_i] = c;
             block_lens[b_i] = l;
             block_offsets[b_i] = d;
+
+            next_idx += l;
 
             if (!block_c_map.count(c)) {
                 block_c_map.insert(std::pair<char, ulint>(c, k));
@@ -380,6 +423,9 @@ public:
                 curr.lengths = dac_vec(block_lens);
                 curr.offsets = dac_vec(block_offsets);
                 
+                curr.idx = block_idx;
+                block_idx = next_idx;
+                
                 block_chars = vector<char>(block_size);
                 block_lens = vector<ulint>(block_size);
                 block_offsets = vector<ulint>(block_size);
@@ -409,20 +455,19 @@ public:
 
     /* 
      * LF step from the posision given
-     * \param Run position (RLBWT)
-     * \param Current character offset in block
-     * \return run position and offset of preceding character
+     * \param i_position of Interval-BWT
+     * \return i_position of preceding character at pos
      */
-    std::pair<ulint, ulint> LF(ulint run, ulint offset)
+    i_position LF(i_position pos)
     {
-        assert(run < r);
+        assert(pos.run < r);
 
-        i_block* curr = &B_table[run/block_size];
-        const ulint k = run%block_size;
+        i_block* curr = &B_table[pos.run/block_size];
+        const ulint k = pos.run%block_size;
 
         const auto [d, c] = curr->heads.inverse_select(k);
         ulint q = curr->get_interval(c, d);
-        offset += curr->offsets[k];
+        ulint offset = pos.offset + curr->offsets[k];
 
         ulint next_b = q/block_size;
         ulint next_k = q%block_size;
@@ -441,7 +486,7 @@ public:
             }
         }
 
-	    return std::make_pair(q, offset);
+	    return i_position{q, offset};
     }
 
     /*
@@ -451,14 +496,15 @@ public:
      * \param Character to step from
      * \return run position and offset of preceding character
      */
-    std::pair<ulint, ulint> LF(ulint run, ulint offset, char c)
+    i_position LF(i_position pos, char c)
     {
-        assert(run < r);
+        assert(pos.run < r);
 
-        ulint b = run/block_size;
-        ulint k = run%block_size;
+        ulint b = pos.run/block_size;
+        ulint k = pos.run%block_size;
         i_block* curr = &B_table[b];
 
+        ulint offset = pos.offset;
         auto [c_rank, bwt_c] = curr->heads.inverse_select(k);
         if (c != bwt_c)
         {
@@ -468,7 +514,7 @@ public:
                 if (b == 0)
                 {
                     error("No preceding character for position, cannot LF step");
-                    throw std::logic_error("Character" + util::to_string(c) + "does not occur anywhere preceding run" + util::to_string(run) +".");
+                    throw std::logic_error("Character" + util::to_string(c) + "does not occur anywhere preceding run" + util::to_string(pos.run) +".");
                 }
                 curr =  &B_table[--b];
                 c_rank = curr->heads.rank(block_size, c);
@@ -499,13 +545,67 @@ public:
             }
         }
 
-	    return std::make_pair(q, offset);
+	    return i_position{q, offset};
     }
 
     char get_char(ulint run) 
     {
         return (char) B_table[run/block_size].heads[run%block_size];
     }
+
+    char get_char(i_position pos) 
+    {
+        return get_char(pos.run);
+    }
+
+    range_t full_range()
+    {
+        i_position first = {0, 0};
+        i_position second = {(r-1)/block_size, B_table[(r-1)/block_size].offsets[(r-1)%block_size]};
+        return range_t(first, second);
+    }
+
+    ulint i_position_to_idx(i_position pos)
+    {
+        ulint pos_b = pos.run/block_size;
+        ulint pos_k = pos.run%block_size;
+
+        i_block* block = &B_table[pos_b];
+        
+        ulint idx;
+        ulint k;
+        // Take the stored idx of the start of the next block
+        // Walk back to solution
+        if (pos_k > block_size/2 && pos_b != B_table.size() - 1)
+        {
+            idx = B_table[pos_b+1].idx;
+            k = block_size - 1;
+            while (k >= pos_k)
+            {
+                idx -= block->lengths[k];
+                --k;
+            }
+        }
+        // Take the stored idx of the current block
+        // Walk forward to solution
+        else
+        {
+            idx = block->idx;
+            k = 0;
+            while (k < pos_k)
+            {
+                idx += block->lengths[k];
+                ++k;
+            }
+        }
+        idx += pos.offset;
+        return idx;
+    }
+
+    // ulint idx_to_i_position(i_position pos)
+    // {
+    //
+    // }
 
     ulint number_of_runs()
     {

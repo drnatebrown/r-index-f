@@ -33,15 +33,11 @@ void invert_bwt(r_index_f<> rif)
     verbose("Inverting BWT using R-Index-F (B table)");
     std::chrono::high_resolution_clock::time_point t_insert_start = std::chrono::high_resolution_clock::now();
     ulint steps = 0;
-    ulint run = 0;
-    ulint offset = 0;
+    r_index_f<>::i_position pos = {0, 0};
     char c;
-    while((c = rif.get_char(run)) > TERMINATOR) 
+    while((c = rif.get_char(pos)) > TERMINATOR) 
     {
-        std::pair<ulint, ulint> block_pair = rif.LF(run, offset, c);
-        run = block_pair.first;
-        offset = block_pair.second;
-
+        pos = rif.LF(pos, c);
         ++steps;
     }
     std::chrono::high_resolution_clock::time_point t_insert_end = std::chrono::high_resolution_clock::now();
