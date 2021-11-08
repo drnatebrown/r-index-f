@@ -150,6 +150,9 @@ public:
 
         ulint idx;
 
+        bit_vector prior_is_valid;
+        bit_vector next_is_valid;
+
         const ulint get_interval(const char c, const ulint d)
         {
             switch(c)
@@ -297,6 +300,9 @@ public:
             out.write((char *)&idx, sizeof(idx));
             written_bytes += sizeof(idx);
 
+            written_bytes += next_is_valid.serialize(out,v,"Next_Is_Valid");
+            written_bytes += prior_is_valid.serialize(out,v,"Prior_Is_Valid");
+
             sdsl::structure_tree::add_size(child, written_bytes);
             return written_bytes;
         }
@@ -376,6 +382,9 @@ public:
 
             lengths.load(in);
             offsets.load(in);
+
+            next_is_valid.load(in);
+            prior_is_valid.load(in);
 
             in.read((char *)&idx, sizeof(idx));
         }
@@ -477,10 +486,13 @@ public:
         vector<ulint> block_offsets = vector<ulint>(block_size);
         std::unordered_map<char, ulint> block_c_map = std::unordered_map<char, ulint>();
         std::unordered_map<char, ulint> last_c_map = std::unordered_map<char, ulint>();
-        std::unordered_map<char, ulint> prior_last_c_map = std::unordered_map<char, ulint>();
+        std::unordered_map<char, ulint> prior_c_map = std::unordered_map<char, ulint>();
         std::unordered_map<char, vector<bool>> bit_diff = std::unordered_map<char, vector<bool>>();
         ulint block_idx = 0;
         ulint next_idx = 0;
+
+        vector<bool> next_valid = vector<bool>(256, false);
+        vector<bool> prior_valid = vector<bool>(256, false);
 
         ulint b = 0;
         ulint b_i = 0;
@@ -505,6 +517,8 @@ public:
 
                 if (b > 0)
                 {
+                    next_valid[c] = true;
+
                     ulint c_b = k;
 	                ulint c_off = d;
 
@@ -559,10 +573,12 @@ public:
                 construct_im(curr.heads, std::string(block_chars.begin(), (i >= r) ? block_chars.begin()+b_i : block_chars.end()).c_str(), 1);
 
                 i_position prior_c;
-                for (auto& kv: prior_last_c_map)
+                for (auto& kv: prior_c_map)
                 {
                     if (b > 0)
                     {
+                        prior_valid[c] = true;
+
                         char c = kv.first;
                         ulint c_pos = kv.second;
 
@@ -624,15 +640,21 @@ public:
                 curr.offsets = dac_vec(block_offsets);
                 
                 curr.idx = block_idx;
-                block_idx = next_idx;
                 
+                curr.next_is_valid = bv(next_valid);
+                curr.prior_is_valid = bv(prior_valid);
+
                 block_chars = vector<char>(block_size);
                 block_lens = vector<ulint>(block_size);
                 block_offsets = vector<ulint>(block_size);
                 block_c_map = std::unordered_map<char, ulint>();
-                prior_last_c_map = last_c_map;
+                for(auto& kv : last_c_map)
+                {
+                    prior_c_map[kv.first] = kv.second;
+                }
                 last_c_map = std::unordered_map<char, ulint>();
                 bit_diff = std::unordered_map<char, vector<bool>>();
+                block_idx = next_idx;
 
                 ++b;
                 b_i = 0;
@@ -712,7 +734,7 @@ public:
             c_rank_f = curr->heads.rank(k, c);
             if (curr->heads.rank(curr->heads.size(),c) < c_rank_f + 1)
             {
-                if (b == B_table.size()-1)
+                if (!curr.next_is_valid[c])
                 {
                     return range_t(i_position{1,0}, i_position{0,0});
                 }
@@ -748,7 +770,7 @@ public:
             c_rank_s = curr->heads.rank(k, c);
             if (c_rank_s == 0)
             {
-                if (b == 0)
+                if (!curr.prior_is_valid[c])
                 {
                     return range_t(i_position{1,0}, i_position{0,0});
                 }
