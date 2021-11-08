@@ -53,8 +53,8 @@ public:
 
     struct i_position
     {
-        ulint run;
-        ulint offset;
+        ulint run = 0;
+        ulint offset = 0;
 
         i_position& operator++() 
         {
@@ -275,23 +275,21 @@ public:
             size = else_next_LF.size();
             out.write((char *)&size, sizeof(size_t));
             written_bytes += sizeof(size);
-            for(auto const& [key, val] : else_next_LF)
+            for(auto& [key, val] : else_next_LF)
             {
                 out.write((char *)&key, sizeof(key));
                 written_bytes += sizeof(key);                
-                out.write((char *)&val, sizeof(val));
-                written_bytes += sizeof(val);                
+                written_bytes += val.serialize(out, v, "else_next_LF_" + std::to_string(key));           
             }
 
             size = else_prior_LF.size();
             out.write((char *)&size, sizeof(size_t));
             written_bytes += sizeof(size);
-            for(auto const& [key, val] : else_prior_LF)
+            for(auto& [key, val] : else_prior_LF)
             {
                 out.write((char *)&key, sizeof(key));
                 written_bytes += sizeof(key);                
-                out.write((char *)&val, sizeof(val));
-                written_bytes += sizeof(val);                
+                written_bytes += val.serialize(out, v, "else_prior_LF_" + std::to_string(key));          
             }
 
             written_bytes += lengths.serialize(out,v,"Lengths");
@@ -383,10 +381,10 @@ public:
             lengths.load(in);
             offsets.load(in);
 
+            in.read((char *)&idx, sizeof(idx));
+
             next_is_valid.load(in);
             prior_is_valid.load(in);
-
-            in.read((char *)&idx, sizeof(idx));
         }
     };
 
@@ -515,8 +513,11 @@ public:
                 last_c_map.insert(std::pair<char, ulint>(c, k));
                 bit_diff.insert(std::pair<char, vector<bool>>(c, vector<bool>()));
 
+
                 if (b > 0)
                 {
+                    i_position next_c;
+
                     next_valid[c] = true;
 
                     ulint c_b = k;
@@ -527,28 +528,29 @@ public:
                         c_off -= lens[c_b];
                         ++c_b;
                     }
+                    next_c = {c_b, c_off};
 
                     switch(c)
                     {
-                        case 'A':
-                            B_table[b-1].next_A_LF = i_position{c_b, c_off};
-                            break;
+                    case 'A':
+                        B_table[b-1].next_A_LF = next_c;
+                        break;
 
-                        case 'C':
-                            B_table[b-1].next_C_LF = i_position{c_b, c_off};
-                            break;
+                    case 'C':
+                        B_table[b-1].next_C_LF = next_c;
+                        break;
 
-                        case 'G':
-                            B_table[b-1].next_G_LF = i_position{c_b, c_off};
-                            break;
+                    case 'G':
+                        B_table[b-1].next_G_LF = next_c;
+                        break;
 
-                        case 'T':
-                            B_table[b-1].next_T_LF = i_position{c_b, c_off};
-                            break;
+                    case 'T':
+                        B_table[b-1].next_T_LF = next_c;
+                        break;
 
-                        default:
-                            B_table[b-1].else_next_LF.insert(std::pair<char, i_position>(c, i_position{c_b, c_off}));
-                            break;
+                    default:
+                        B_table[b-1].else_next_LF.insert(std::pair<char, i_position>(c, next_c));
+                        break;
                     }
                 }
             }
@@ -571,12 +573,48 @@ public:
                 i_block& curr = B_table[b];
 
                 construct_im(curr.heads, std::string(block_chars.begin(), (i >= r) ? block_chars.begin()+b_i : block_chars.end()).c_str(), 1);
+                
+                for (auto& kv: bit_diff) 
+                {
+                    switch(kv.first)
+                    {
+                        case 'A':
+                            curr.A_map = block_c_map['A'];
+                            curr.A_bv = bv(kv.second);
+                            curr.A_diff = bv_select_1(&curr.A_bv);
+                            break;
 
-                i_position prior_c;
+                        case 'C':
+                            curr.C_map = block_c_map['C'];
+                            curr.C_bv = bv(kv.second);
+                            curr.C_diff = bv_select_1(&curr.C_bv);
+                            break;
+
+                        case 'G':
+                            curr.G_map = block_c_map['G'];
+                            curr.G_bv = bv(kv.second);
+                            curr.G_diff = bv_select_1(&curr.G_bv);
+                            break;
+
+                        case 'T':
+                            curr.T_map = block_c_map['T'];
+                            curr.T_bv = bv(kv.second);
+                            curr.T_diff = bv_select_1(&curr.T_bv);
+                            break;
+
+                        default:
+                            curr.else_map.insert(std::pair<char, ulint>(kv.first, block_c_map[kv.first]));
+                            curr.else_bv.insert(std::pair<char, bit_vec>(kv.first, bv(kv.second)));
+                            curr.else_diff.insert(std::pair<char, bv_select_1>(kv.first, bv_select_1(&curr.else_bv[kv.first])));
+                            break;
+                    }
+                }
+                
                 for (auto& kv: prior_c_map)
                 {
                     if (b > 0)
                     {
+                        i_position prior_c;
                         prior_valid[c] = true;
 
                         char c = kv.first;
@@ -592,49 +630,32 @@ public:
                         }
 
                         prior_c = i_position{c_b, c_off};
+
+                        switch(c)
+                        {
+                            case 'A':
+                                curr.prior_A_LF = prior_c;
+                                break;
+
+                            case 'C':
+                                curr.prior_C_LF = prior_c;
+                                break;
+
+                            case 'G':
+                                curr.prior_G_LF = prior_c;
+                                break;
+
+                            case 'T':
+                                curr.prior_T_LF = prior_c;
+                                break;
+
+                            default:
+                                curr.else_prior_LF.insert(std::pair<char, i_position>(c, prior_c));
+                                break;
+                        }
                     }
                 }
                 
-                for (auto& kv: bit_diff) 
-                {
-                    switch(kv.first)
-                    {
-                        case 'A':
-                            curr.A_map = block_c_map['A'];
-                            curr.A_bv = bv(kv.second);
-                            curr.A_diff = bv_select_1(&curr.A_bv);
-                            curr.prior_A_LF = prior_c;
-                            break;
-
-                        case 'C':
-                            curr.C_map = block_c_map['C'];
-                            curr.C_bv = bv(kv.second);
-                            curr.C_diff = bv_select_1(&curr.C_bv);
-                            curr.prior_C_LF = prior_c;
-                            break;
-
-                        case 'G':
-                            curr.G_map = block_c_map['G'];
-                            curr.G_bv = bv(kv.second);
-                            curr.G_diff = bv_select_1(&curr.G_bv);
-                            curr.prior_G_LF = prior_c;
-                            break;
-
-                        case 'T':
-                            curr.T_map = block_c_map['T'];
-                            curr.T_bv = bv(kv.second);
-                            curr.T_diff = bv_select_1(&curr.T_bv);
-                            curr.prior_T_LF = prior_c;
-                            break;
-
-                        default:
-                            curr.else_map.insert(std::pair<char, ulint>(kv.first, block_c_map[kv.first]));
-                            curr.else_bv.insert(std::pair<char, bit_vec>(kv.first, bv(kv.second)));
-                            curr.else_diff.insert(std::pair<char, bv_select_1>(kv.first, bv_select_1(&curr.else_bv[kv.first])));
-                            curr.else_prior_LF.insert(std::pair<char, i_position>(c, prior_c));
-                            break;
-                    }
-                }
 
                 curr.lengths = dac_vec(block_lens);
                 curr.offsets = dac_vec(block_offsets);
