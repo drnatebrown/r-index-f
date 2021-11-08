@@ -508,7 +508,7 @@ public:
         auto [c_rank_f, bwt_c_f] = curr->heads.inverse_select(k);
         if (c != bwt_c_f)
         {
-            c_rank_f = curr->heads.rank(k, c) + 1;
+            c_rank_f = curr->heads.rank(k, c);
 
             while (curr->heads.rank(curr->heads.size(),c) < c_rank_f + 1)
             {
