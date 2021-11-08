@@ -489,7 +489,7 @@ public:
         ulint block_idx = 0;
         ulint next_idx = 0;
 
-        vector<bool> next_valid = vector<bool>(256, false);
+        vector<vector<bool>> next_valid(B_len, vector<bool>(256));
         vector<bool> prior_valid = vector<bool>(256, false);
 
         ulint b = 0;
@@ -518,8 +518,6 @@ public:
                 {
                     i_position next_c;
 
-                    next_valid[c] = true;
-
                     ulint c_b = k;
 	                ulint c_off = d;
 
@@ -530,26 +528,52 @@ public:
                     }
                     next_c = {c_b, c_off};
 
+                    ulint b_curr = b;
                     switch(c)
                     {
                     case 'A':
-                        B_table[b-1].next_A_LF = next_c;
+                        while (b_curr > 0 && !next_valid[b_curr-1][c])
+                        {
+                            B_table[b_curr-1].next_A_LF = next_c;
+                            next_valid[b_curr-1][c] = true;
+                            b_curr;
+                        }
                         break;
 
                     case 'C':
-                        B_table[b-1].next_C_LF = next_c;
+                        while (b_curr > 0 && !next_valid[b_curr-1][c])
+                        {
+                            B_table[b_curr-1].next_C_LF = next_c;
+                            next_valid[b_curr-1][c] = true;
+                            --b_curr;
+                        }
                         break;
 
                     case 'G':
-                        B_table[b-1].next_G_LF = next_c;
+                        while (b_curr > 0 && !next_valid[b_curr-1][c])
+                        {
+                            B_table[b_curr-1].next_G_LF = next_c;
+                            next_valid[b_curr-1][c] = true;
+                            --b_curr;
+                        }
                         break;
 
                     case 'T':
-                        B_table[b-1].next_T_LF = next_c;
+                        while (b_curr > 0 && !next_valid[b_curr-1][c])
+                        {
+                            B_table[b_curr-1].next_T_LF = next_c;
+                            next_valid[b_curr-1][c] = true;
+                            --b_curr;
+                        }
                         break;
 
                     default:
-                        B_table[b-1].else_next_LF.insert(std::pair<char, i_position>(c, next_c));
+                        while (b_curr > 0 && !next_valid[b_curr-1][c])
+                        {
+                            B_table[b_curr-1].else_next_LF.insert(std::pair<char, i_position>(c, next_c));
+                            next_valid[b_curr-1][c] = true;
+                            --b_curr;
+                        }
                         break;
                     }
                 }
@@ -609,7 +633,7 @@ public:
                             break;
                     }
                 }
-                
+
                 for (auto& kv: prior_c_map)
                 {
                     if (b > 0)
@@ -662,7 +686,7 @@ public:
                 
                 curr.idx = block_idx;
                 
-                curr.next_is_valid = bv(next_valid);
+                curr.next_is_valid = bv(next_valid[b]);
                 curr.prior_is_valid = bv(prior_valid);
 
                 block_chars = vector<char>(block_size);
@@ -676,6 +700,7 @@ public:
                 last_c_map = std::unordered_map<char, ulint>();
                 bit_diff = std::unordered_map<char, vector<bool>>();
                 block_idx = next_idx;
+                prior_valid = vector<bool>(256, false);
 
                 ++b;
                 b_i = 0;
@@ -805,12 +830,12 @@ public:
                 k = curr->heads.select(c_rank_s, c);
                 offset = curr->lengths[k] - 1;
 
-                end = LF_from_rank(curr, k, offset, c_rank_s, c);
+                end = LF_from_rank(curr, k, offset, c_rank_s - 1, c);
             }
         }
         else
         {
-            end = end = LF_from_rank(curr, k, offset, c_rank_s, c);
+            end = LF_from_rank(curr, k, offset, c_rank_s, c);
         }
 
         return range_t(start, end);
@@ -829,7 +854,7 @@ public:
     range_t full_range()
     {
         i_position first = {0, 0};
-        i_position second = {(r-1), B_table[(r-1)/block_size].offsets[(r-1)%block_size]};
+        i_position second = {(r-1), B_table[(r-1)/block_size].lengths[(r-1)%block_size]-1};
         return range_t(first, second);
     }
 
@@ -975,6 +1000,8 @@ private:
                 next_k = 0;
             }
         }
+
+        return i_position{q, offset};
     }
 };
 
