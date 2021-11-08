@@ -558,12 +558,14 @@ public:
 
                 construct_im(curr.heads, std::string(block_chars.begin(), (i >= r) ? block_chars.begin()+b_i : block_chars.end()).c_str(), 1);
 
-                for (auto& kv: bit_diff) 
+                i_position prior_c;
+                for (auto& kv: prior_last_c_map)
                 {
-                    i_position prior_c;
                     if (b > 0)
                     {
-                        ulint c_pos = prior_last_c_map[kv.first];
+                        char c = kv.first;
+                        ulint c_pos = kv.second;
+
                         ulint c_b = intervals[c_pos];
                         ulint c_off = (lens[c_pos] - 1) + offsets[c_pos];
 
@@ -575,7 +577,10 @@ public:
 
                         prior_c = i_position{c_b, c_off};
                     }
-
+                }
+                
+                for (auto& kv: bit_diff) 
+                {
                     switch(kv.first)
                     {
                         case 'A':
