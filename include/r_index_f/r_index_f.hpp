@@ -505,27 +505,27 @@ public:
         i_block* curr = &B_table[b];
 
         ulint offset = first.offset;
-        auto [c_rank, bwt_c] = curr->heads.inverse_select(k);
-        if (c != bwt_c)
+        auto [c_rank_f, bwt_c_f] = curr->heads.inverse_select(k);
+        if (c != bwt_c_f)
         {
-            c_rank = curr->heads.rank(k, c) + 1;
+            c_rank_f = curr->heads.rank(k, c) + 1;
 
-            while (curr->heads.rank(curr->heads.size(),c) < c_rank + 1)
+            while (curr->heads.rank(curr->heads.size(),c) < c_rank_f + 1)
             {
                 if (b == B_table.size()-1)
                 {
                     return range_t(i_position{1,0}, i_position{0,0});
                 }
                 curr =  &B_table[++b];
-                c_rank = 0;
+                c_rank_f = 0;
             }
 
 
-            k = curr->heads.select(c_rank + 1, c);
+            k = curr->heads.select(c_rank_f + 1, c);
             offset = 0;
         }
 
-        ulint q = curr->get_interval(c, c_rank);
+        ulint q = curr->get_interval(c, c_rank_f);
 
         offset += curr->offsets[k];
 
@@ -575,7 +575,7 @@ public:
             offset = curr->lengths[k] - 1;
         }
 
-        q = curr->get_interval(c, c_rank);
+        q = curr->get_interval(c, c_rank_s);
 
         offset += curr->offsets[k];
 
