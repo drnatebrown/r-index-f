@@ -734,13 +734,13 @@ public:
             c_rank_f = curr->heads.rank(k, c);
             if (curr->heads.rank(curr->heads.size(),c) < c_rank_f + 1)
             {
-                if (!curr.next_is_valid[c])
+                if (!curr->next_is_valid[c])
                 {
                     return range_t(i_position{1,0}, i_position{0,0});
                 }
                 else
                 {
-                    start = curr.get_next_LF(c);
+                    start = curr->get_next_LF(c);
                 }
             }
             else {
@@ -770,13 +770,13 @@ public:
             c_rank_s = curr->heads.rank(k, c);
             if (c_rank_s == 0)
             {
-                if (!curr.prior_is_valid[c])
+                if (!curr->prior_is_valid[c])
                 {
                     return range_t(i_position{1,0}, i_position{0,0});
                 }
                 else
                 {
-                    end = curr.get_prior_LF(c);
+                    end = curr->get_prior_LF(c);
                 }
             }
             else
