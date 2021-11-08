@@ -37,7 +37,7 @@ void invert_bwt(r_index_f<> rif)
     char c;
     while((c = rif.get_char(pos)) > TERMINATOR) 
     {
-        pos = rif.LF(pos, c);
+        pos = rif.LF(pos);
         ++steps;
     }
     std::chrono::high_resolution_clock::time_point t_insert_end = std::chrono::high_resolution_clock::now();
