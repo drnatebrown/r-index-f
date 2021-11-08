@@ -103,7 +103,8 @@ public:
         */
         void load(std::istream &in)
         {
-            
+            in.read((char *)&run, sizeof(run));
+            in.read((char *)&offset, sizeof(offset));
         }
     };
 
