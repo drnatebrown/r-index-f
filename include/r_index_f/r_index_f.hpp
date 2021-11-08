@@ -490,65 +490,6 @@ public:
     }
 
     /*
-     * LF Step from the character c at (or first preceding) position
-     * \param Run position (RLBWT)
-     * \param Current offset within interval
-     * \param Character to step from
-     * \return run position and offset of preceding character
-     */
-    i_position LF(i_position pos, char c)
-    {
-        assert(pos.run < r);
-
-        ulint b = pos.run/block_size;
-        ulint k = pos.run%block_size;
-        i_block* curr = &B_table[b];
-
-        ulint offset = pos.offset;
-        auto [c_rank, bwt_c] = curr->heads.inverse_select(k);
-        if (c != bwt_c)
-        {
-            c_rank = curr->heads.rank(k, c);
-            while (c_rank == 0)
-            {
-                if (b == 0)
-                {
-                    error("No preceding character for position, cannot LF step");
-                    throw std::logic_error("Character" + util::to_string(c) + "does not occur anywhere preceding run" + util::to_string(pos.run) +".");
-                }
-                curr =  &B_table[--b];
-                c_rank = curr->heads.rank(block_size, c);
-            }
-
-            k = curr->heads.select(c_rank+1, c);
-            offset = curr->lengths[k] - 1;
-        }
-
-        ulint q = curr->get_interval(c, c_rank);
-
-        offset += curr->offsets[k];
-
-        ulint next_b = q/block_size;
-        ulint next_k = q%block_size;
-        i_block* next = &B_table[next_b];
-        ulint next_len;
-	    while (offset >= (next_len = next->lengths[next_k])) 
-        {
-            offset -= next_len;
-            ++next_k;
-            ++q;
-
-            if (next_k >= block_size)
-            {
-                next = &B_table[++next_b];
-                next_k = 0;
-            }
-        }
-
-	    return i_position{q, offset};
-    }
-
-    /*
     * \param r inclusive range of a string w
     * \param c character
     * \return inclusive range of cw
@@ -556,7 +497,6 @@ public:
     range_t LF(range_t range, char c)
     {
         i_position* first = &range.first;
-        i_position* second = &range.second;
         
         assert(first.run < r);
 
@@ -565,33 +505,27 @@ public:
         i_block* curr = &B_table[b];
 
         ulint offset = first.offset;
-        auto [c_rank, bwt_c] = curr->heads.inverse_select(k);
-        if (c != bwt_c)
+        auto [c_rank_f, bwt_c_f] = curr->heads.inverse_select(k);
+        if (c != bwt_c_f)
         {
-            bool found_c = false;
-            c_rank = curr->heads.rank(k, c) + 1;
-            while (!found_c)
+            c_rank_f = curr->heads.rank(k, c) + 1;
+
+            while (curr->heads.rank(curr->heads.size(),c) < c_rank_f + 1)
             {
-                try {
-                    k = curr->heads.select(c_rank + 1, c);
-                    found_c = true;
-                }
-                catch(std::logic_error &e)
+                if (b == B_table.size()-1)
                 {
-                    if (b == B_table.size()-1)
-                    {
-                        error("No succeding character for position, cannot LF step");
-                        throw std::logic_error("Character" + util::to_string(c) + "does not occur at or after position" + util::to_string(first.run) +".");
-                    }
-                    curr =  &B_table[++b];
-                    c_rank = 0;
+                    return range_t(i_position{1,0}, i_position{0,0});
                 }
+                curr =  &B_table[++b];
+                c_rank_f = 0;
             }
 
+
+            k = curr->heads.select(c_rank_f + 1, c);
             offset = 0;
         }
 
-        ulint q = curr->get_interval(c, c_rank);
+        ulint q = curr->get_interval(c, c_rank_f);
 
         offset += curr->offsets[k];
 
@@ -612,7 +546,58 @@ public:
             }
         }
 
-        return range_t(i_position{q, offset}, LF(second, c));
+        first = &i_position{q, offset};
+
+        i_position* second = &range.second;
+
+        assert(second.run < r);
+
+        b = second.run/block_size;
+        k = second.run%block_size;
+        curr = &B_table[b];
+
+        offset = second.offset;
+        auto [c_rank_s, bwt_c_s] = curr->heads.inverse_select(k);
+        if (c != bwt_c_s)
+        {
+            c_rank_s = curr->heads.rank(k, c);
+            while (c_rank_s == 0)
+            {
+                if (b == 0)
+                {
+                    return range_t(i_position{1,0}, i_position{0,0});
+                }
+                curr =  &B_table[--b];
+                c_rank_s = curr->heads.rank(curr->heads.size(), c);
+            }
+
+            k = curr->heads.select(c_rank_s, c);
+            offset = curr->lengths[k] - 1;
+        }
+
+        q = curr->get_interval(c, c_rank_s);
+
+        offset += curr->offsets[k];
+
+        next_b = q/block_size;
+        next_k = q%block_size;
+        next = &B_table[next_b];
+	    while (offset >= (next_len = next->lengths[next_k])) 
+        {
+            offset -= next_len;
+            ++next_k;
+            ++q;
+
+            if (next_k >= block_size)
+            {
+                next = &B_table[++next_b];
+                next_k = 0;
+            }
+        }
+
+        second = &i_position{q, offset};
+
+        return range_t(first, second);
     }
 
     char get_char(ulint run) 
