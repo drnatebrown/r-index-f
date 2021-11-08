@@ -49,6 +49,8 @@ template  < ulint block_size = 1048576,
 class r_index_f
 {
 public:
+    typedef size_t size_type;
+
     struct i_position
     {
         ulint run;
@@ -78,9 +80,33 @@ public:
         inline bool operator>=(const i_position& pos){ return !(*this < pos); }
         inline bool operator==(const i_position& pos){ return run == pos.run && offset == pos.offset; }
         inline bool operator!=(const i_position& pos){ return !(*this == pos); }
+
+        /* serialize the structure to the ostream
+        * \param out     the ostream
+        */
+        size_type serialize(std::ostream &out, sdsl::structure_tree_node *v = nullptr, std::string name = "") // const
+        {
+            sdsl::structure_tree_node *child = sdsl::structure_tree::add_child(v, name, sdsl::util::class_name(*this));
+            size_type written_bytes = 0;
+
+            out.write((char *)&run, sizeof(run));
+            written_bytes += sizeof(run);
+
+            out.write((char *)&offset, sizeof(offset));
+            written_bytes += sizeof(offset);
+
+            return written_bytes;
+        }
+
+        /* load the structure from the istream
+        * \param in the istream
+        */
+        void load(std::istream &in)
+        {
+            
+        }
     };
 
-    typedef size_t size_type;
     typedef bit_vector::select_1_type bv_select_1;
     typedef std::pair<i_position, i_position> range_t;
 
@@ -91,22 +117,32 @@ public:
         ulint A_map;
         bv_select_1 A_diff;
         bit_vec A_bv;
+        i_position next_A_LF;
+        i_position prior_A_LF;
 
         ulint C_map;
         bv_select_1 C_diff;
         bit_vec C_bv;
+        i_position next_C_LF;
+        i_position prior_C_LF;
 
         ulint G_map;
         bv_select_1 G_diff;
         bit_vec G_bv;
+        i_position next_G_LF;
+        i_position prior_G_LF;
 
         ulint T_map;
         bv_select_1 T_diff;
         bit_vec T_bv;
+        i_position next_T_LF;
+        i_position prior_T_LF;
 
         std::unordered_map<char, ulint> else_map;
         std::unordered_map<char, bv_select_1> else_diff;
         std::unordered_map<char, bit_vec> else_bv;
+        std::unordered_map<char, i_position> else_next_LF;
+        std::unordered_map<char, i_position> else_prior_LF;
 
         dac_vec lengths;
         dac_vec offsets;
@@ -134,6 +170,49 @@ public:
             }
         }
 
+        i_position get_prior_LF(const char c)
+        {
+            switch(c)
+            {
+                case 'A':
+                    return prior_A_LF;
+
+                case 'C':
+                    return prior_C_LF;
+
+                case 'G':
+                    return prior_G_LF;
+
+                case 'T':
+                    return prior_T_LF;
+
+                default:
+                    return else_prior_LF[c];
+            }
+        }
+
+        i_position get_next_LF(const char c)
+        {
+            switch(c)
+            {
+                case 'A':
+                    return next_A_LF;
+
+                case 'C':
+                    return next_C_LF;
+
+                case 'G':
+                    return next_G_LF;
+
+                case 'T':
+                    return next_T_LF;
+
+                default:
+                    return else_next_LF[c];
+            }
+        }
+
+
         /* serialize the structure to the ostream
         * \param out     the ostream
         */
@@ -147,18 +226,26 @@ public:
             out.write((char *)&A_map, sizeof(A_map));
             written_bytes += sizeof(A_map);
             written_bytes += A_bv.serialize(out,v,"A_bv");
+            written_bytes += next_A_LF.serialize(out,v,"Next_A_LF");
+            written_bytes += prior_A_LF.serialize(out,v,"Prior_A_LF");
             
             out.write((char *)&C_map, sizeof(C_map));
             written_bytes += sizeof(C_map);
             written_bytes += C_bv.serialize(out,v,"C_bv");
+            written_bytes += next_C_LF.serialize(out,v,"Next_C_LF");
+            written_bytes += prior_C_LF.serialize(out,v,"Prior_C_LF");
 
             out.write((char *)&G_map, sizeof(G_map));
             written_bytes += sizeof(G_map);
             written_bytes += G_bv.serialize(out,v,"G_bv");
+            written_bytes += next_G_LF.serialize(out,v,"Next_G_LF");
+            written_bytes += prior_G_LF.serialize(out,v,"Prior_G_LF");
 
             out.write((char *)&T_map, sizeof(T_map));
             written_bytes += sizeof(T_map);
             written_bytes += T_bv.serialize(out,v,"T_bv");
+            written_bytes += next_T_LF.serialize(out,v,"Next_T_LF");
+            written_bytes += prior_T_LF.serialize(out,v,"Prior_T_LF");
 
             size_t size = else_map.size();
             out.write((char *)&size, sizeof(size_t));
@@ -181,6 +268,28 @@ public:
                 written_bytes += val.serialize(out,v,"else_bv_" + std::to_string(key));                
             }
 
+            size = else_next_LF.size();
+            out.write((char *)&size, sizeof(size_t));
+            written_bytes += sizeof(size);
+            for(auto const& [key, val] : else_next_LF)
+            {
+                out.write((char *)&key, sizeof(key));
+                written_bytes += sizeof(key);                
+                out.write((char *)&val, sizeof(val));
+                written_bytes += sizeof(val);                
+            }
+
+            size = else_prior_LF.size();
+            out.write((char *)&size, sizeof(size_t));
+            written_bytes += sizeof(size);
+            for(auto const& [key, val] : else_prior_LF)
+            {
+                out.write((char *)&key, sizeof(key));
+                written_bytes += sizeof(key);                
+                out.write((char *)&val, sizeof(val));
+                written_bytes += sizeof(val);                
+            }
+
             written_bytes += lengths.serialize(out,v,"Lengths");
             written_bytes += offsets.serialize(out,v,"Offsets");
 
@@ -201,18 +310,26 @@ public:
             in.read((char *)&A_map, sizeof(A_map));
             A_bv.load(in);
             A_diff = bv_select_1(&A_bv);
+            next_A_LF.load(in);
+            prior_A_LF.load(in);
 
             in.read((char *)&C_map, sizeof(C_map));
             C_bv.load(in);
             C_diff = bv_select_1(&C_bv);
+            next_C_LF.load(in);
+            prior_C_LF.load(in);
 
             in.read((char *)&G_map, sizeof(G_map));
             G_bv.load(in);
             G_diff = bv_select_1(&G_bv);
+            next_G_LF.load(in);
+            prior_G_LF.load(in);
 
             in.read((char *)&T_map, sizeof(T_map));
             T_bv.load(in);
             T_diff = bv_select_1(&T_bv);
+            next_T_LF.load(in);
+            prior_T_LF.load(in);
 
             size_t size;
             in.read((char *)&size, sizeof(size));
@@ -234,6 +351,26 @@ public:
                 val.load(in);
                 else_bv[key] = val;
                 else_diff[key] = bv_select_1(&else_bv[key]);
+            }
+
+            in.read((char *)&size, sizeof(size));
+            for(size_t i = 0; i < size; ++i)
+            {
+                char key;
+                i_position val;
+                in.read((char *)&key, sizeof(key));
+                val.load(in);
+                else_next_LF[key] = val;
+            }
+
+            in.read((char *)&size, sizeof(size));
+            for(size_t i = 0; i < size; ++i)
+            {
+                char key;
+                i_position val;
+                in.read((char *)&key, sizeof(key));
+                val.load(in);
+                else_prior_LF[key] = val;
             }
 
             lengths.load(in);
@@ -339,6 +476,7 @@ public:
         vector<ulint> block_offsets = vector<ulint>(block_size);
         std::unordered_map<char, ulint> block_c_map = std::unordered_map<char, ulint>();
         std::unordered_map<char, ulint> last_c_map = std::unordered_map<char, ulint>();
+        std::unordered_map<char, ulint> prior_last_c_map = std::unordered_map<char, ulint>();
         std::unordered_map<char, vector<bool>> bit_diff = std::unordered_map<char, vector<bool>>();
         ulint block_idx = 0;
         ulint next_idx = 0;
@@ -363,6 +501,41 @@ public:
                 block_c_map.insert(std::pair<char, ulint>(c, k));
                 last_c_map.insert(std::pair<char, ulint>(c, k));
                 bit_diff.insert(std::pair<char, vector<bool>>(c, vector<bool>()));
+
+                if (b > 0)
+                {
+                    ulint c_b = k;
+	                ulint c_off = d;
+
+	                while (c_off >= lens[c_b]) 
+                    {
+                        c_off -= lens[c_b];
+                        ++c_b;
+                    }
+
+                    switch(c)
+                    {
+                        case 'A':
+                            B_table[b-1].next_A_LF = i_position{c_b, c_off};
+                            break;
+
+                        case 'C':
+                            B_table[b-1].next_C_LF = i_position{c_b, c_off};
+                            break;
+
+                        case 'G':
+                            B_table[b-1].next_G_LF = i_position{c_b, c_off};
+                            break;
+
+                        case 'T':
+                            B_table[b-1].next_T_LF = i_position{c_b, c_off};
+                            break;
+
+                        default:
+                            B_table[b-1].else_next_LF.insert(std::pair<char, i_position>(c, i_position{c_b, c_off}));
+                            break;
+                    }
+                }
             }
 
             ulint diff = k - last_c_map[c];
@@ -386,36 +559,57 @@ public:
 
                 for (auto& kv: bit_diff) 
                 {
+                    i_position prior_c;
+                    if (b > 0)
+                    {
+                        ulint c_pos = prior_last_c_map[kv.first];
+                        ulint c_b = intervals[c_pos];
+                        ulint c_off = (lens[c_pos] - 1) + offsets[c_pos];
+
+                        while (c_off >= lens[c_b]) 
+                        {
+                            c_off -= lens[c_b];
+                            ++c_b;
+                        }
+
+                        prior_c = i_position{c_b, c_off};
+                    }
+
                     switch(kv.first)
                     {
                         case 'A':
                             curr.A_map = block_c_map['A'];
                             curr.A_bv = bv(kv.second);
                             curr.A_diff = bv_select_1(&curr.A_bv);
+                            curr.prior_A_LF = prior_c;
                             break;
 
                         case 'C':
                             curr.C_map = block_c_map['C'];
                             curr.C_bv = bv(kv.second);
                             curr.C_diff = bv_select_1(&curr.C_bv);
+                            curr.prior_C_LF = prior_c;
                             break;
 
                         case 'G':
                             curr.G_map = block_c_map['G'];
                             curr.G_bv = bv(kv.second);
                             curr.G_diff = bv_select_1(&curr.G_bv);
+                            curr.prior_G_LF = prior_c;
                             break;
 
                         case 'T':
                             curr.T_map = block_c_map['T'];
                             curr.T_bv = bv(kv.second);
                             curr.T_diff = bv_select_1(&curr.T_bv);
+                            curr.prior_T_LF = prior_c;
                             break;
 
                         default:
                             curr.else_map.insert(std::pair<char, ulint>(kv.first, block_c_map[kv.first]));
                             curr.else_bv.insert(std::pair<char, bit_vec>(kv.first, bv(kv.second)));
                             curr.else_diff.insert(std::pair<char, bv_select_1>(kv.first, bv_select_1(&curr.else_bv[kv.first])));
+                            curr.else_prior_LF.insert(std::pair<char, i_position>(c, prior_c));
                             break;
                     }
                 }
@@ -430,6 +624,7 @@ public:
                 block_lens = vector<ulint>(block_size);
                 block_offsets = vector<ulint>(block_size);
                 block_c_map = std::unordered_map<char, ulint>();
+                prior_last_c_map = last_c_map;
                 last_c_map = std::unordered_map<char, ulint>();
                 bit_diff = std::unordered_map<char, vector<bool>>();
 
@@ -496,7 +691,7 @@ public:
     */
     range_t LF(range_t range, char c)
     {
-        
+        i_position start;
         assert(range.first.run < r);
 
         ulint b = range.first.run/block_size;
@@ -509,45 +704,30 @@ public:
         if (c != bwt_c_f)
         {
             c_rank_f = curr->heads.rank(k, c);
-
-            while (curr->heads.rank(curr->heads.size(),c) < c_rank_f + 1)
+            if (curr->heads.rank(curr->heads.size(),c) < c_rank_f + 1)
             {
                 if (b == B_table.size()-1)
                 {
                     return range_t(i_position{1,0}, i_position{0,0});
                 }
-                curr =  &B_table[++b];
-                c_rank_f = 0;
+                else
+                {
+                    start = curr.get_next_LF(c);
+                }
             }
+            else {
+                k = curr->heads.select(c_rank_f + 1, c);
+                offset = 0;
 
-
-            k = curr->heads.select(c_rank_f + 1, c);
-            offset = 0;
+                start = LF_from_rank(curr, k, offset, c_rank_f, c);
+            }
         }
-
-        ulint q = curr->get_interval(c, c_rank_f);
-
-        offset += curr->offsets[k];
-
-        ulint next_b = q/block_size;
-        ulint next_k = q%block_size;
-        i_block* next = &B_table[next_b];
-        ulint next_len;
-	    while (offset >= (next_len = next->lengths[next_k])) 
+        else
         {
-            offset -= next_len;
-            ++next_k;
-            ++q;
-
-            if (next_k >= block_size)
-            {
-                next = &B_table[++next_b];
-                next_k = 0;
-            }
+            start = LF_from_rank(curr, k, offset, c_rank_f, c);
         }
 
-        i_position start = i_position{q, offset};
-
+        i_position end;
         assert(range.second.run < r);
 
         b = range.second.run/block_size;
@@ -556,46 +736,33 @@ public:
 
         offset = range.second.offset;
       
-     
         auto [c_rank_s, bwt_c_s] = curr->heads.inverse_select(k);
         if (c != bwt_c_s)
         {
             c_rank_s = curr->heads.rank(k, c);
-            while (c_rank_s == 0)
+            if (c_rank_s == 0)
             {
                 if (b == 0)
                 {
                     return range_t(i_position{1,0}, i_position{0,0});
                 }
-                curr =  &B_table[--b];
-                c_rank_s = curr->heads.rank(curr->heads.size(), c);
+                else
+                {
+                    end = curr.get_prior_LF(c);
+                }
             }
-
-            k = curr->heads.select(c_rank_s, c);
-            offset = curr->lengths[k] - 1;
-        }
-
-        q = curr->get_interval(c, c_rank_s);
-
-        offset += curr->offsets[k];
-
-        next_b = q/block_size;
-        next_k = q%block_size;
-        next = &B_table[next_b];
-	    while (offset >= (next_len = next->lengths[next_k])) 
-        {
-            offset -= next_len;
-            ++next_k;
-            ++q;
-
-            if (next_k >= block_size)
+            else
             {
-                next = &B_table[++next_b];
-                next_k = 0;
+                k = curr->heads.select(c_rank_s, c);
+                offset = curr->lengths[k] - 1;
+
+                end = LF_from_rank(curr, k, offset, c_rank_s, c);
             }
         }
-
-        i_position end = i_position{q, offset};
+        else
+        {
+            end = end = LF_from_rank(curr, k, offset, c_rank_s, c);
+        }
 
         return range_t(start, end);
     }
@@ -736,6 +903,30 @@ private:
     ulint n;
     ulint r;
     vector<i_block> B_table;
+
+    i_position LF_from_rank(i_block* curr, ulint k, ulint offset, ulint c_rank, char c)
+    {
+        ulint q = curr->get_interval(c, c_rank);
+
+        offset += curr->offsets[k];
+
+        ulint next_b = q/block_size;
+        ulint next_k = q%block_size;
+        i_block* next = &B_table[next_b];
+        ulint next_len;
+	    while (offset >= (next_len = next->lengths[next_k])) 
+        {
+            offset -= next_len;
+            ++next_k;
+            ++q;
+
+            if (next_k >= block_size)
+            {
+                next = &B_table[++next_b];
+                next_k = 0;
+            }
+        }
+    }
 };
 
 #endif /* end of include guard: _R_INDEX_F_HH */
