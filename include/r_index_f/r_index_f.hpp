@@ -496,15 +496,14 @@ public:
     */
     range_t LF(range_t range, char c)
     {
-        i_position* first = &range.first;
         
-        assert(first.run < r);
+        assert(range.first.run < r);
 
-        ulint b = first.run/block_size;
-        ulint k = first.run%block_size;
+        ulint b = range.first.run/block_size;
+        ulint k = range.first.run%block_size;
         i_block* curr = &B_table[b];
 
-        ulint offset = first.offset;
+        ulint offset = range.first.offset;
         auto [c_rank_f, bwt_c_f] = curr->heads.inverse_select(k);
         if (c != bwt_c_f)
         {
@@ -546,17 +545,15 @@ public:
             }
         }
 
-        first = &i_position{q, offset};
+        i_position start = i_position{q, offset};
 
-        i_position* second = &range.second;
+        assert(range.second.run < r);
 
-        assert(second.run < r);
-
-        b = second.run/block_size;
-        k = second.run%block_size;
+        b = range.second.run/block_size;
+        k = range.second.run%block_size;
         curr = &B_table[b];
 
-        offset = second.offset;
+        offset = range.second.offset;
         auto [c_rank_s, bwt_c_s] = curr->heads.inverse_select(k);
         if (c != bwt_c_s)
         {
