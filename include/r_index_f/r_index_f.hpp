@@ -613,7 +613,7 @@ public:
     range_t full_range()
     {
         i_position first = {0, 0};
-        i_position second = {(r-1)/block_size, B_table[(r-1)/block_size].offsets[(r-1)%block_size]};
+        i_position second = {(r-1), B_table[(r-1)/block_size].offsets[(r-1)%block_size]};
         return range_t(first, second);
     }
 
