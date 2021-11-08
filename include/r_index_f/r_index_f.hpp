@@ -592,9 +592,9 @@ public:
             }
         }
 
-        second = &i_position{q, offset};
+        i_position end = i_position{q, offset};
 
-        return range_t(first, second);
+        return range_t(start, end);
     }
 
     char get_char(ulint run) 
