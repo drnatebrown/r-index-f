@@ -504,6 +504,7 @@ public:
         i_block* curr = &B_table[b];
 
         ulint offset = range.first.offset;
+
         auto [c_rank_f, bwt_c_f] = curr->heads.inverse_select(k);
         if (c != bwt_c_f)
         {
@@ -554,6 +555,8 @@ public:
         curr = &B_table[b];
 
         offset = range.second.offset;
+      
+     
         auto [c_rank_s, bwt_c_s] = curr->heads.inverse_select(k);
         if (c != bwt_c_s)
         {
