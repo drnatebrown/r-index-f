@@ -35,7 +35,14 @@
 #include <sstream>      // std::stringstream
 #include <vector>      // std::vector
 #include <chrono>       // high_resolution_clock
+#include <algorithm> 
+#include <utility> 
 #include <assert.h>
+
+#define ALPHABET_SIZE 256
+
+static const uint8_t TERMINATOR = 1;
+typedef unsigned long int ulint;
 
 std::string NowTime();
 void _internal_messageInfo(const std::string message);
