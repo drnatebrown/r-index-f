@@ -138,7 +138,7 @@ public:
 
 	    while (next_offset >= lens[next_interval]) 
         {
-            next_offset -= lens[++next_interval];
+            next_offset -= lens[next_interval++];
         }
 
 	    return std::make_pair(next_interval, next_offset);

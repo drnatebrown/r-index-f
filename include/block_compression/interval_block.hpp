@@ -94,19 +94,24 @@ public:
 
         char_base_interval = base_map;
 
+        char_diff_vec = std::vector<bit_vec>(diff_vec.size());
+        char_diff_select = std::vector<bv_select_1>(diff_vec.size());
         for(size_t i = 0; i < diff_vec.size(); i++)
         {
-            char_diff_vec[i] = bool_to_bit_vec(diff_vec[i]);
-            char_diff_select[i] = bv_select_1(&char_diff_vec[i]);
+            if(!diff_vec[i].empty())
+            {
+                char_diff_vec[i] = bool_to_bit_vec(diff_vec[i]);
+                char_diff_select[i] = bv_select_1(&char_diff_vec[i]);
+            }
         }
 
         lengths = dac_vec(lens);
-        offsets = dac_vec(offsets);
+        offsets = dac_vec(offs);
                 
         idx = i;
 
         prior_block_LF = prior_LF;
-        next_block_LF = std::vector<interval_pos>(ALPHABET_SIZE);
+        next_block_LF = std::vector<interval_pos>(ALPHABET_SIZE, interval_pos());
     }
 
     // Return the character at row k
@@ -187,7 +192,7 @@ public:
     // Reduces position until offset shorter than length of interval, or returns if at end of block
     interval_pos reduce(interval_pos pos)
     {
-        ulint q = pos.run / block_size;
+        ulint q = pos.run;
         ulint k = pos.run % block_size;
         ulint d = pos.offset;
         ulint next_len;
@@ -214,7 +219,7 @@ public:
 
         // Serialize base intervals
         size_t size = char_base_interval.size();
-        out.write((char*) &size, sizeof(size_t));
+        out.write((char*) &size, sizeof(size));
         written_bytes += sizeof(size);
         for (const auto& val: char_base_interval)
         {
@@ -224,7 +229,7 @@ public:
 
         // Serialize diff vector
         size = char_diff_vec.size();
-        out.write((char*) &size, sizeof(size_t));
+        out.write((char*) &size, sizeof(size));
         written_bytes += sizeof(size);
         char curr_c = 0;
         for (const auto& val: char_diff_vec)
@@ -242,22 +247,22 @@ public:
 
         // Serialize prior char LF (prior block)
         size = prior_block_LF.size();
-        out.write((char*) &size, sizeof(size_t));
+        out.write((char*) &size, sizeof(size));
         written_bytes += sizeof(size);
+        curr_c = 0;
         for (const auto& val: prior_block_LF)
         {
-            out.write((char*) &val, sizeof(val));
-            written_bytes += sizeof(val); 
+            written_bytes += val.serialize(out, v, "prior_LF_" + std::to_string(curr_c++));
         }
 
         // Serialize next char LF (next block)
         size = next_block_LF.size();
-        out.write((char*) &size, sizeof(size_t));
+        out.write((char*) &size, sizeof(size));
         written_bytes += sizeof(size);
+        curr_c = 0;
         for (const auto& val: next_block_LF)
         {
-            out.write((char*) &val, sizeof(val));
-            written_bytes += sizeof(val); 
+            written_bytes += val.serialize(out, v, "next_LF_" + std::to_string(curr_c++)); 
         }
 
         sdsl::structure_tree::add_size(child, written_bytes);
@@ -275,6 +280,7 @@ public:
         // Load base interval mapping
         size_t size;
         in.read((char *)&size, sizeof(size));
+        char_base_interval = std::vector<ulint>(size);
         for(size_t i = 0; i < size; ++i)
         {
             ulint val;
@@ -284,6 +290,8 @@ public:
 
         // Load char diff vectors
         in.read((char *)&size, sizeof(size));
+        char_diff_vec = std::vector<bit_vec>(size);
+        char_diff_select = std::vector<bv_select_1>(size);
         for(size_t i = 0; i < size; ++i)
         {
             bit_vec val;
@@ -301,20 +309,20 @@ public:
 
         // Load prior char LF (prior block)
         in.read((char *)&size, sizeof(size));
+        prior_block_LF = std::vector<interval_pos>(size);
         for(size_t i = 0; i < size; ++i)
         {
             interval_pos val;
-            in.read((char *)&val, sizeof(val));
             val.load(in);
             prior_block_LF[i] = val;
         }
 
         // Load next char LF (next block)
         in.read((char *)&size, sizeof(size));
+        next_block_LF = std::vector<interval_pos>(size);
         for(size_t i = 0; i < size; ++i)
         {
             interval_pos val;
-            in.read((char *)&val, sizeof(val));
             val.load(in);
             next_block_LF[i] = val;
         }

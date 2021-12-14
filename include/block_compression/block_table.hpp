@@ -86,9 +86,9 @@ public:
 
         // Concerned with Interval sectioned by character (break into base pointer and difference from prior interval)
         std::unordered_map<char, ulint> last_c_pos = std::unordered_map<char, ulint>();
-        std::vector<ulint> block_c_map = std::vector<ulint>(ALPHABET_SIZE);
-        std::vector<vector<bool>> bit_diff = std::vector<vector<bool>>(ALPHABET_SIZE);
-        std::vector<interval_pos> prior_LF = std::vector<interval_pos>(ALPHABET_SIZE);
+        std::vector<ulint> block_c_map = std::vector<ulint>(ALPHABET_SIZE, 0);
+        std::vector<vector<bool>> bit_diff = std::vector<vector<bool>>(ALPHABET_SIZE, vector<bool>());
+        std::vector<interval_pos> prior_LF = std::vector<interval_pos>(ALPHABET_SIZE, interval_pos());
 
         ulint block_idx = 0;
         ulint next_idx = 0;
@@ -150,14 +150,14 @@ public:
                     prior_LF[c] = interval_pos(k, d);
                 }
 
-                block_chars = vector<char>(block_size);
-                block_intervals = vector<ulint>(block_size);
-                block_lens = vector<ulint>(block_size);
-                block_offsets = vector<ulint>(block_size);
+                block_chars = vector<char>();
+                block_intervals = vector<ulint>();
+                block_lens = vector<ulint>();
+                block_offsets = vector<ulint>();
 
                 last_c_pos = std::unordered_map<char, ulint>();
-                block_c_map = std::vector<ulint>(ALPHABET_SIZE);
-                bit_diff = std::vector<vector<bool>>(ALPHABET_SIZE);
+                block_c_map = std::vector<ulint>(ALPHABET_SIZE, 0);
+                bit_diff = std::vector<vector<bool>>(ALPHABET_SIZE, std::vector<bool>());
                 block_idx = next_idx;
 
                 ++b;
@@ -167,6 +167,7 @@ public:
 
     block& get_block(ulint run)
     {
+        assert(run < r);
         return blocks[run / block_size];
     }
 
