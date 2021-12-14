@@ -178,7 +178,7 @@ public:
         // Count occ of c before position
         ulint c_rank = heads.rank(k, c);
         // If the c of rank at or succeding our position overruns the block, return LF of next c in another block
-        if (c_rank + 1 > heads.rank(k + 1, c))
+        if (c_rank + 1 > heads.rank(heads.size(), c))
         {
             return next_block_LF[c];
         }
