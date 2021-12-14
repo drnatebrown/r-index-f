@@ -23,6 +23,7 @@
 #define _I_BLOCK_HH
 
 #include <common.hpp>
+#include <interval_pos.hpp>
 
 #include <sdsl/rmq_support.hpp>
 #include <sdsl/int_vector.hpp>
@@ -31,7 +32,8 @@
 
 using namespace sdsl;
 
-template  < class wt_t = wt_huff<bit_vector>,
+template  < ulint block_size = 65536,
+            class wt_t = wt_huff<bit_vector>,
             class bit_vec = bit_vector,
             class dac_vec = dac_vector<> >
 class interval_block
@@ -65,7 +67,7 @@ private:
         ulint q = get_interval(c, c_rank);
         ulint d_prime = d + offsets[k];
 
-        return interval_pos(q, d_prime)
+        return interval_pos(q, d_prime);
     }
 
     // Convert boolean vector to specified bit vector
@@ -85,14 +87,18 @@ public:
     interval_block() {}
 
     // Simple constructor for block, work to compute values done externally (i.e. no logic enforced here)
-    interval_block(std::vector<ulint> chars, std::vector<ulint> base_map, std::vector<bit_vec> diff_vec, std::vector<bv_select_1> 
-                    std::vector<ulint> lens, std::vector<ulint> offs, ulint i, std::vector<interval_pos> prior_LF, std::vector<interval_pos> next_LF) {
+    interval_block(std::vector<char> chars, std::vector<ulint> base_map, std::vector<vector<bool>> diff_vec,
+                    std::vector<ulint> lens, std::vector<ulint> offs, ulint i, std::vector<interval_pos> prior_LF) {
         
         construct_im(heads, std::string(chars.begin(), chars.end()).c_str(), 1);
 
         char_base_interval = base_map;
-        char_diff_vec = diff_vec;
-        char_diff_select = bv_select_1(&)
+
+        for(size_t i = 0; i < diff_vec.size(); i++)
+        {
+            char_diff_vec[i] = bool_to_bit_vec(diff_vec[i]);
+            char_diff_select[i] = bv_select_1(&char_diff_vec[i]);
+        }
 
         lengths = dac_vec(lens);
         offsets = dac_vec(offsets);
@@ -100,7 +106,7 @@ public:
         idx = i;
 
         prior_block_LF = prior_LF;
-        next_block_LF = next_LF;
+        next_block_LF = std::vector<interval_pos>(ALPHABET_SIZE);
     }
 
     // Return the character at row k
@@ -112,7 +118,7 @@ public:
     // For a given character and it's rank, return the interval mapping (LF)
     const ulint get_interval(const char c, const ulint c_rank)
     {
-        return char_base_interval[c] + char_diff_vec[c](c_rank+1) - c_rank;
+        return char_base_interval[c] + char_diff_select[c](c_rank+1) - c_rank;
     }
 
     // Get the length at row k
@@ -125,6 +131,16 @@ public:
     const ulint get_offset(const ulint k)
     {
         return offsets[k];
+    }
+
+    interval_pos get_next_LF(const char c)
+    {
+        return next_block_LF[c];
+    }
+
+    void set_next_LF(const char c, interval_pos next_LF)
+    {
+        next_block_LF[c] = next_LF;
     }
 
     // For row k wih offset d, compute the LF mapping
@@ -144,9 +160,9 @@ public:
         {
             return prior_block_LF[c];
         }
-        k_prime = heads.select(c_rank);
+        ulint k_prime = heads.select(c_rank);
         // If our k changed, set the offset to the last character in that prior run
-        d_prime = (k != k_prime) ? lengths[k_prime] - 1 : d;
+        ulint d_prime = (k != k_prime) ? lengths[k_prime] - 1 : d;
 
         return LF(k_prime, d_prime, c, c_rank);
     }
@@ -161,11 +177,28 @@ public:
         {
             return next_block_LF[c];
         }
-        k_prime = heads.select(c_rank + 1);
+        ulint k_prime = heads.select(c_rank + 1);
         // If k changed, set it to the first character of the next run
-        d_prime = (k != k_prime) ? 0 : d;
+        ulint d_prime = (k != k_prime) ? 0 : d;
 
         return LF(k_prime, d_prime, c, c_rank);
+    }
+
+    // Reduces position until offset shorter than length of interval, or returns if at end of block
+    interval_pos reduce(interval_pos pos)
+    {
+        ulint q = pos.run / block_size;
+        ulint k = pos.run % block_size;
+        ulint d = pos.offset;
+        ulint next_len;
+	    while (k < lengths.size() && d >= (next_len = lengths[k])) 
+        {
+            d -= next_len;
+            ++k;
+            ++q;
+        }
+
+	    return interval_pos(q, d);
     }
 
     /* serialize the interval block to the ostream
@@ -174,7 +207,7 @@ public:
     size_t serialize(std::ostream &out, sdsl::structure_tree_node *v = nullptr, std::string name = "") // const
     {
         sdsl::structure_tree_node *child = sdsl::structure_tree::add_child(v, name, sdsl::util::class_name(*this));
-        size_type written_bytes = 0;
+        size_t written_bytes = 0;
 
         // Serialize wavelet tree (heads)
         written_bytes += heads.serialize(out,v,"Heads");
@@ -190,7 +223,7 @@ public:
         }
 
         // Serialize diff vector
-        size_t size = char_diff_vec.size();
+        size = char_diff_vec.size();
         out.write((char*) &size, sizeof(size_t));
         written_bytes += sizeof(size);
         char curr_c = 0;
@@ -208,7 +241,7 @@ public:
         written_bytes += sizeof(idx);
 
         // Serialize prior char LF (prior block)
-        size_t size = prior_block_LF.size();
+        size = prior_block_LF.size();
         out.write((char*) &size, sizeof(size_t));
         written_bytes += sizeof(size);
         for (const auto& val: prior_block_LF)
@@ -218,7 +251,7 @@ public:
         }
 
         // Serialize next char LF (next block)
-        size_t size = next_block_LF.size();
+        size = next_block_LF.size();
         out.write((char*) &size, sizeof(size_t));
         written_bytes += sizeof(size);
         for (const auto& val: next_block_LF)
@@ -246,7 +279,7 @@ public:
         {
             ulint val;
             in.read((char *)&val, sizeof(val));
-            char_base_interval[key] = val;
+            char_base_interval[i] = val;
         }
 
         // Load char diff vectors
@@ -270,7 +303,7 @@ public:
         in.read((char *)&size, sizeof(size));
         for(size_t i = 0; i < size; ++i)
         {
-            iterval_pos val;
+            interval_pos val;
             in.read((char *)&val, sizeof(val));
             val.load(in);
             prior_block_LF[i] = val;

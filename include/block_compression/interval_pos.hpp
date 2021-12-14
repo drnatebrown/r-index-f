@@ -30,11 +30,12 @@
 class interval_pos
 {
 private:
-    ulint run;
-    ulint offset;
     bool set;
 
 public:
+    ulint run;
+    ulint offset;
+
     interval_pos() {
         run = 0;
         offset = 0;
@@ -44,6 +45,7 @@ public:
     interval_pos(ulint r, ulint o) {
         run = r;
         offset = o;
+        set = true;
     }
 
     bool is_set()

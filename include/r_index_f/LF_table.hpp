@@ -42,7 +42,7 @@ public:
     struct LF_row
     {
         char character;
-        ulint block;
+        ulint interval;
         ulint length;
         ulint offset;
     };

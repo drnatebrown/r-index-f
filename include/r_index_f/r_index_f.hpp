@@ -24,9 +24,9 @@
 
 #include <common.hpp>
 #include <LF_table.hpp>
-#include <interval_pos.hpp>
-#include <interval_block.hpp>
 #include <block_table.hpp>
+#include <interval_block.hpp>
+#include <interval_pos.hpp>
 
 #include <malloc_count.h>
 
@@ -45,7 +45,7 @@ template  < ulint block_size = 65536,
 class r_index_f
 {
 public:
-    typedef std::pair<i_position, i_position> range_t;
+    typedef std::pair<interval_pos, interval_pos> range_t;
 
     r_index_f() {}
 
@@ -75,114 +75,6 @@ public:
         bwt_stats();
     }
 
-    /* 
-     * LF step from the posision given
-     * \param i_position of Interval-BWT
-     * \return i_position of preceding character at pos
-     */
-    i_position LF(interval_pos pos)
-    {
-        i_block* next = &B_table[next_b];
-        ulint next_len;
-	    while (offset >= (next_len = next->lengths[next_k])) 
-        {
-            offset -= next_len;
-            ++next_k;
-            ++q;
-
-            if (next_k >= block_size)
-            {
-                next = &B_table[++next_b];
-                next_k = 0;
-            }
-        }
-
-	    return i_position{q, offset};
-    }
-
-    /*
-    * \param r inclusive range of a string w
-    * \param c character
-    * \return inclusive range of cw
-    */
-    range_t LF(range_t range, char c)
-    {
-        i_position start;
-        assert(range.first.run < r);
-
-        ulint b = range.first.run/block_size;
-        ulint k = range.first.run%block_size;
-        i_block* curr = &B_table[b];
-
-        ulint offset = range.first.offset;
-
-        auto [c_rank_f, bwt_c_f] = curr->heads.inverse_select(k);
-        if (c != bwt_c_f)
-        {
-            c_rank_f = curr->heads.rank(k, c);
-            if (curr->heads.rank(curr->heads.size(),c) < c_rank_f + 1)
-            {
-                //if (!curr->next_is_valid[c])
-                //{
-                //    return range_t(i_position{1,0}, i_position{0,0});
-                //}
-                //else
-                //{
-                    start = curr->get_next_LF(c);
-                //}
-            }
-            else {
-                k = curr->heads.select(c_rank_f + 1, c);
-                offset = 0;
-
-                start = LF_from_rank(curr, k, offset, c_rank_f, c);
-            }
-        }
-        else
-        {
-            start = LF_from_rank(curr, k, offset, c_rank_f, c);
-        }
-
-        i_position end;
-        assert(range.second.run < r);
-
-        b = range.second.run/block_size;
-        k = range.second.run%block_size;
-        curr = &B_table[b];
-
-        offset = range.second.offset;
-      
-        auto [c_rank_s, bwt_c_s] = curr->heads.inverse_select(k);
-        if (c != bwt_c_s)
-        {
-            c_rank_s = curr->heads.rank(k, c);
-            if (c_rank_s == 0)
-            {
-                //if (!curr->prior_is_valid[c])
-                //{
-                //    return range_t(i_position{1,0}, i_position{0,0});
-                //}
-                //else
-                //{
-                    end = curr->get_prior_LF(c);
-                //}
-            }
-            else
-            {
-                k = curr->heads.select(c_rank_s, c);
-                offset = curr->lengths[k] - 1;
-
-                end = LF_from_rank(curr, k, offset, c_rank_s - 1, c);
-            }
-        }
-        else
-        {
-            end = LF_from_rank(curr, k, offset, c_rank_s, c);
-        }
-
-        return range_t(start, end);
-    }
-
     ulint runs()
     {
         return B_table.runs();
@@ -193,9 +85,24 @@ public:
         return B_table.size();
     }
 
+    interval_pos LF(interval_pos pos)
+    {
+        return B_table.LF(pos);
+    }
+
+    range_t LF(range_t range, char c)
+    {
+        return range_t(B_table.LF_next(range.first, c), B_table.LF_prior(range.second, c));
+    }
+
     range_t full_range()
     {
         return range_t(B_table.begin(), B_table.end());
+    }
+
+    char get_char(interval_pos pos)
+    {
+        return B_table.get_char(pos);
     }
 
     void mem_stats()
@@ -220,10 +127,10 @@ public:
     /* serialize the structure to the ostream
      * \param out     the ostream
      */
-    size_type serialize(std::ostream &out, sdsl::structure_tree_node *v = nullptr, std::string name = "") // const
+    size_t serialize(std::ostream &out, sdsl::structure_tree_node *v = nullptr, std::string name = "") // const
     {
         sdsl::structure_tree_node *child = sdsl::structure_tree::add_child(v, name, sdsl::util::class_name(*this));
-        size_type written_bytes = 0;
+        size_t written_bytes = 0;
 
         written_bytes += B_table.serialize(out, v, "B_table");
 
@@ -246,32 +153,6 @@ public:
 
 private:
     block_table<block_size, wt_t, bit_vec, dac_vec> B_table;
-
-    i_position LF_from_rank(i_block* curr, ulint k, ulint offset, ulint c_rank, char c)
-    {
-        ulint q = curr->get_interval(c, c_rank);
-
-        offset += curr->offsets[k];
-
-        ulint next_b = q/block_size;
-        ulint next_k = q%block_size;
-        i_block* next = &B_table[next_b];
-        ulint next_len;
-	    while (offset >= (next_len = next->lengths[next_k])) 
-        {
-            offset -= next_len;
-            ++next_k;
-            ++q;
-
-            if (next_k >= block_size)
-            {
-                next = &B_table[++next_b];
-                next_k = 0;
-            }
-        }
-
-        return i_position{q, offset};
-    }
 };
 
 #endif /* end of include guard: _R_INDEX_F_HH */
