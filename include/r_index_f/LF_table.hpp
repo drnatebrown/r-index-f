@@ -55,7 +55,7 @@ public:
         lengths.clear();
         lengths.seekg(0);
         
-        vector<vector<size_t>> L_block_indices = vector<vector<size_t>>(256);
+        vector<vector<size_t>> L_block_indices = vector<vector<size_t>>(ALPHABET_SIZE);
         chars = vector<char>(); 
         lens = vector<ulint>();
         
