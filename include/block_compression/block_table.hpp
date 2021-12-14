@@ -229,7 +229,7 @@ public:
 
     interval_pos end()
     {
-        return interval_pos(r-1, get_block(r-1).get_length(row(r-1))-1);
+        return interval_pos(r-1, get_length(r-1)-1);
     }
 
     ulint i_position_to_idx(interval_pos pos)
