@@ -232,7 +232,7 @@ public:
         return interval_pos(r-1, get_length(r-1)-1);
     }
 
-    ulint i_position_to_idx(interval_pos pos)
+    ulint interval_to_idx(interval_pos pos)
     {
         ulint pos_k = row(pos);
         block& b = get_block(pos);

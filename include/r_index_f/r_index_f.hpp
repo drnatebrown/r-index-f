@@ -100,6 +100,11 @@ public:
         return range_t(B_table.begin(), B_table.end());
     }
 
+    ulint interval_to_idx(interval_pos pos)
+    {
+        return B_table.interval_to_idx(pos);
+    }
+
     char get_char(interval_pos pos)
     {
         return B_table.get_char(pos);
