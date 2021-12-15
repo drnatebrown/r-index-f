@@ -173,8 +173,14 @@ public:
         // If there are no c prior to position in block, return LF of prior c in another block
         if (c_rank == 0) 
         {
-            assert(has_prior_LF(c));
-            return prior_block_LF[c];
+            if (has_prior_LF(c))
+            {
+                return prior_block_LF[c];
+            }
+            else
+            {
+                return interval_pos();
+            }
         }
         ulint k_prime = heads.select(c_rank, c);
         // If our k changed, set the offset to the last character in that prior run
@@ -191,8 +197,14 @@ public:
         // If the c of rank at or succeding our position overruns the block, return LF of next c in another block
         if (c_rank + 1 > heads.rank(heads.size(), c))
         {
-            assert(has_next_LF(c));
-            return next_block_LF[c];
+            if (has_next_LF(c))
+            {
+                return next_block_LF[c];
+            }
+            else
+            {
+                return interval_pos();
+            }
         }
         ulint k_prime = heads.select(c_rank + 1, c);
         // If k changed, set it to the first character of the next run

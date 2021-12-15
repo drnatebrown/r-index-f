@@ -213,6 +213,11 @@ public:
 
     interval_pos reduced_pos(interval_pos pos)
     {
+        if (!pos.is_set())
+        {
+            return pos;
+        }
+
         interval_pos curr = pos;
         while (curr.offset >= get_length(curr))
         {
