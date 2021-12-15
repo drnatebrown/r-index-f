@@ -173,6 +173,7 @@ public:
         // If there are no c prior to position in block, return LF of prior c in another block
         if (c_rank == 0) 
         {
+            assert(has_prior_LF(c));
             return prior_block_LF[c];
         }
         ulint k_prime = heads.select(c_rank, c);
@@ -190,6 +191,7 @@ public:
         // If the c of rank at or succeding our position overruns the block, return LF of next c in another block
         if (c_rank + 1 > heads.rank(heads.size(), c))
         {
+            assert(has_next_LF(c));
             return next_block_LF[c];
         }
         ulint k_prime = heads.select(c_rank + 1, c);
