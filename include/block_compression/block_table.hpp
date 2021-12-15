@@ -145,8 +145,10 @@ public:
 
                 for(auto const& [c, pos] : last_c_pos)
                 {
+                    // Since pos is wrt. current block, add the runs seen prior before computing LF
+                    ulint run = b*block_size + pos;
                     // Perform LF step from the last seen character in this run (which is at offset equal to last character, one minus length)
-                    auto[k, d] = LF_rows.LF(block_intervals[pos], block_lens[pos] - 1);
+                    auto[k, d] = LF_rows.LF(run, block_lens[pos] - 1);
                     prior_LF[c] = interval_pos(k, d);
                 }
 
