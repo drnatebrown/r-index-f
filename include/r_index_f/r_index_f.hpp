@@ -39,7 +39,8 @@ using namespace sdsl;
 using namespace std;
 
 template  < ulint block_size = 65536,
-            ulint idx_sampling = 8,
+            ulint idx_rate = 2,
+            class idx_vec = sd_vector<>,
             class wt_t = wt_huff<bit_vector>,
             class bit_vec = bit_vector,
             class dac_vec = dac_vector<> >
@@ -66,7 +67,7 @@ public:
         ifs_heads.seekg(0);
         ifs_len.seekg(0);
         LF_table temp(ifs_heads, ifs_len);
-        B_table = block_table<block_size, idx_sampling, wt_t, bit_vec, dac_vec>(temp);
+        B_table = block_table<block_size, idx_rate, idx_vec, wt_t, bit_vec, dac_vec>(temp);
         std::chrono::high_resolution_clock::time_point t_insert_end = std::chrono::high_resolution_clock::now();
 
         verbose("Block-Table construction complete");
@@ -158,7 +159,7 @@ public:
     }
 
 private:
-    block_table<block_size, idx_sampling, wt_t, bit_vec, dac_vec> B_table;
+    block_table<block_size, idx_rate, idx_vec, wt_t, bit_vec, dac_vec> B_table;
 };
 
 #endif /* end of include guard: _R_INDEX_F_HH */
