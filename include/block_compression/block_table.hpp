@@ -35,6 +35,7 @@
 using namespace sdsl;
 
 template  < ulint block_size = 65536, // 2^16
+            ulint idx_sampling = 1,
             class wt_t = wt_huff<bit_vector>,
             class bit_vec = bit_vector,
             class dac_vec = dac_vector<> >
@@ -44,6 +45,7 @@ private:
     typedef interval_block<block_size, wt_t, bit_vec, dac_vec> block;
 
     vector<block> blocks;
+    vector<ulint> samples;
     ulint r;
     ulint n;
 
@@ -77,7 +79,9 @@ public:
 
         // Round up if quotient not whole
         ulint B_len = (r / block_size) + ((r % block_size) != 0);
+        ulint num_samples = (r / idx_sampling) + ((r % idx_sampling) != 0);
         blocks = vector<block>(B_len);
+        samples = vector<ulint>(num_samples);
 
         vector<char> block_chars = vector<char>();
         vector<ulint> block_intervals = vector<ulint>();
@@ -90,13 +94,17 @@ public:
         std::vector<vector<bool>> bit_diff = std::vector<vector<bool>>(ALPHABET_SIZE, vector<bool>());
         std::vector<interval_pos> prior_LF = std::vector<interval_pos>(ALPHABET_SIZE, interval_pos());
 
-        ulint block_idx = 0;
-        ulint next_idx = 0;
+        ulint idx = 0;
 
         ulint b = 0;
         ulint i = 0;
         while (i < r) 
         {
+            if (i % idx_sampling == 0)
+            {
+                samples[i / idx_sampling] = idx;
+            }
+
             LF_table::LF_row curr = LF_rows.get(i);
 
             block_chars.push_back(curr.character);
@@ -104,7 +112,7 @@ public:
             block_lens.push_back(curr.length);
             block_offsets.push_back(curr.offset);
 
-            next_idx += curr.length;
+            idx += curr.length;
 
             if (!last_c_pos.count(curr.character)) {
                 last_c_pos.insert(std::pair<char, ulint>(curr.character, block_chars.size() - 1));
@@ -141,7 +149,7 @@ public:
             // End of block of intervals, update block table
             if (i % block_size == 0 || i >= r)
             {        
-                blocks[b] = block(block_chars, block_c_map, bit_diff, block_lens, block_offsets, block_idx, prior_LF);
+                blocks[b] = block(block_chars, block_c_map, bit_diff, block_lens, block_offsets, prior_LF);
 
                 for(auto const& [c, pos] : last_c_pos)
                 {
@@ -160,7 +168,6 @@ public:
                 last_c_pos = std::unordered_map<char, ulint>();
                 block_c_map = std::vector<ulint>(ALPHABET_SIZE, 0);
                 bit_diff = std::vector<vector<bool>>(ALPHABET_SIZE, std::vector<bool>());
-                block_idx = next_idx;
 
                 ++b;
             }
@@ -241,20 +248,13 @@ public:
 
     ulint interval_to_idx(interval_pos pos)
     {
-        ulint pos_k = row(pos);
-        block& b = get_block(pos);
-        
-        ulint idx;
-        ulint k;
-        idx = b.get_idx();
-        k = 0;
-        while (k < pos_k)
+        ulint sample_run = (pos.run / idx_sampling)*idx_sampling;
+        ulint idx = samples[pos.run / idx_sampling];
+        while (sample_run < pos.run)
         {
-            idx += b.get_length(k);
-            ++k;
+            idx += get_length(sample_run++);
         }
         idx += pos.offset;
-        return idx;
     }
 
     /* serialize the interval block to the ostream
@@ -280,6 +280,16 @@ public:
             written_bytes += blocks[i].serialize(out,v,"block_table_" + std::to_string(i));
         }
 
+        size = samples.size();
+        out.write((char *)&size, sizeof(size));
+        written_bytes += sizeof(size);
+
+        for(size_t i = 0; i < size; ++i)
+        {
+            out.write((char *)&samples[i], sizeof(samples[i]));
+            written_bytes += sizeof(samples[i]);
+        }
+
         return written_bytes;
     }
 
@@ -298,6 +308,13 @@ public:
         for(size_t i = 0; i < size; ++i)
         {
             blocks[i].load(in);
+        }
+
+        in.read((char *)&size, sizeof(size));
+        samples = std::vector<ulint>(size);
+        for(size_t i = 0; i < size; ++i)
+        {
+            in.read((char *)&samples[i], sizeof(samples[i]));
         }
     }
 };

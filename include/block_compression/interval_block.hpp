@@ -54,9 +54,6 @@ private:
     dac_vec lengths;
     dac_vec offsets;
 
-    // Index for start of block wrt. BWT
-    ulint idx;
-
     // Stores prior and next block LF mapping for a character (for block overruns)
     std::vector<interval_pos> prior_block_LF;
     std::vector<interval_pos> next_block_LF;
@@ -88,7 +85,7 @@ public:
 
     // Simple constructor for block, work to compute values done externally (i.e. no logic enforced here)
     interval_block(std::vector<char> chars, std::vector<ulint> base_map, std::vector<vector<bool>> diff_vec,
-                    std::vector<ulint> lens, std::vector<ulint> offs, ulint i, std::vector<interval_pos> prior_LF) {
+                    std::vector<ulint> lens, std::vector<ulint> offs, std::vector<interval_pos> prior_LF) {
         
         construct_im(heads, std::string(chars.begin(), chars.end()).c_str(), 1);
 
@@ -107,8 +104,6 @@ public:
 
         lengths = dac_vec(lens);
         offsets = dac_vec(offs);
-                
-        idx = i;
 
         prior_block_LF = prior_LF;
         next_block_LF = std::vector<interval_pos>(ALPHABET_SIZE, interval_pos());
@@ -136,11 +131,6 @@ public:
     const ulint get_offset(const ulint k)
     {
         return offsets[k];
-    }
-
-    const ulint get_idx()
-    {
-        return idx;
     }
 
     bool has_next_LF(const char c)
@@ -265,10 +255,6 @@ public:
         written_bytes += lengths.serialize(out,v,"Lengths");
         written_bytes += offsets.serialize(out,v,"Offsets");
 
-        // Serialize block index wrt. BWT
-        out.write((char *)&idx, sizeof(idx));
-        written_bytes += sizeof(idx);
-
         // Serialize prior char LF (prior block)
         size = prior_block_LF.size();
         out.write((char*) &size, sizeof(size));
@@ -327,9 +313,6 @@ public:
         // Load DACs (Length/Offset)
         lengths.load(in);
         offsets.load(in);
-
-        // Load block index wrt. BWT
-        in.read((char *)&idx, sizeof(idx));
 
         // Load prior char LF (prior block)
         in.read((char *)&size, sizeof(size));
