@@ -39,7 +39,7 @@ using namespace sdsl;
 using namespace std;
 
 template  < ulint block_size = 65536,
-            ulint idx_sampling = 1,
+            ulint idx_sampling = 8,
             class wt_t = wt_huff<bit_vector>,
             class bit_vec = bit_vector,
             class dac_vec = dac_vector<> >

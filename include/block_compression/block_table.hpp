@@ -35,7 +35,7 @@
 using namespace sdsl;
 
 template  < ulint block_size = 65536, // 2^16
-            ulint idx_sampling = 1,
+            ulint idx_sampling = 8,
             class wt_t = wt_huff<bit_vector>,
             class bit_vec = bit_vector,
             class dac_vec = dac_vector<> >
@@ -45,6 +45,7 @@ private:
     typedef interval_block<block_size, wt_t, bit_vec, dac_vec> block;
 
     vector<block> blocks;
+    // Make sparse bv, fine for testing
     vector<ulint> samples;
     ulint r;
     ulint n;
@@ -92,6 +93,8 @@ public:
         std::unordered_map<char, ulint> last_c_pos = std::unordered_map<char, ulint>();
         std::vector<ulint> block_c_map = std::vector<ulint>(ALPHABET_SIZE, 0);
         std::vector<vector<bool>> bit_diff = std::vector<vector<bool>>(ALPHABET_SIZE, vector<bool>());
+
+        // Where characters prior to block mapped to, in case we can't find that character when we LF
         std::vector<interval_pos> prior_LF = std::vector<interval_pos>(ALPHABET_SIZE, interval_pos());
 
         ulint idx = 0;
@@ -246,6 +249,7 @@ public:
         return interval_pos(r-1, get_length(r-1)-1);
     }
 
+    // For a general interval position, return the idx wrt. the BWT
     ulint interval_to_idx(interval_pos pos)
     {
         ulint sample_run = (pos.run / idx_sampling)*idx_sampling;
@@ -257,6 +261,27 @@ public:
         idx += pos.offset;
 
         return idx;
+    }
+
+    // For a general index on the BWT, return the corresponding interval position
+    interval_pos idx_to_interval(ulint idx)
+    {
+        assert(idx < n);
+        // Get first element equal to or greater than idx (runs are sorted, so O(lg n) using binary search)
+        auto base = std::lower_bound(samples.begin(), samples.end(), idx);
+        if(*base == idx)
+        {
+            // No offset, so we are at reduced position
+            return interval_pos(std::distance(samples.begin(), base)*idx_sampling, 0);
+        }
+        else
+        {
+            // Index in sampling array of predecessor (minus 1, since it is first element greater)
+            --base;
+            ulint s_i = std::distance(samples.begin(), base);
+            // Offset is difference between predecessor and true value, reduce to find true position
+            return reduced_pos(interval_pos(s_i*idx_sampling, idx-(*base)));
+        }
     }
 
     /* serialize the interval block to the ostream
