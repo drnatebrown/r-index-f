@@ -39,6 +39,8 @@
 #include <utility> 
 #include <assert.h>
 
+#include <sdsl/int_vector.hpp>
+
 #define ALPHABET_SIZE 256
 
 static const uint8_t TERMINATOR = 1;
@@ -170,5 +172,19 @@ void parseArgs(int argc, char *const argv[], Args &arg)
 }
 
 //********** end argument options ********************
+
+// Convert boolean vector to specified bit vector
+template<class B>
+B bool_to_bit_vec(std::vector<bool> &b)
+{
+  if(b.size()==0) return B();
+
+  sdsl::bit_vector bv(b.size());
+
+  for(size_t i = 0; i < b.size(); ++i)
+    bv[i] = b[i];
+
+  return B(bv);
+}
 
 #endif /* end of include guard: _COMMON_HH */

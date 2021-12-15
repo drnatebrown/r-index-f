@@ -29,13 +29,15 @@
 
 #include <sdsl/rmq_support.hpp>
 #include <sdsl/int_vector.hpp>
+#include <sdsl/sd_vector.hpp>
 #include <sdsl/wavelet_trees.hpp>
 #include <sdsl/dac_vector.hpp>
 
 using namespace sdsl;
 
 template  < ulint block_size = 65536, // 2^16
-            ulint idx_sampling = 8,
+            ulint idx_rate = 2,
+            class idx_vec = sd_vector<>,
             class wt_t = wt_huff<bit_vector>,
             class bit_vec = bit_vector,
             class dac_vec = dac_vector<> >
@@ -43,10 +45,14 @@ class block_table
 {
 private:
     typedef interval_block<block_size, wt_t, bit_vec, dac_vec> block;
+    typedef typename idx_vec::rank_1_type idx_rank;
+    typedef typename idx_vec::select_1_type idx_select;
 
     vector<block> blocks;
-    // Make sparse bv, fine for testing
-    vector<ulint> samples;
+    idx_vec idx_samples;
+    idx_rank idx_pred;
+    idx_select run_idx;
+
     ulint r;
     ulint n;
 
@@ -80,9 +86,7 @@ public:
 
         // Round up if quotient not whole
         ulint B_len = (r / block_size) + ((r % block_size) != 0);
-        ulint num_samples = (r / idx_sampling) + ((r % idx_sampling) != 0);
         blocks = vector<block>(B_len);
-        samples = vector<ulint>(num_samples);
 
         vector<char> block_chars = vector<char>();
         vector<ulint> block_intervals = vector<ulint>();
@@ -97,17 +101,12 @@ public:
         // Where characters prior to block mapped to, in case we can't find that character when we LF
         std::vector<interval_pos> prior_LF = std::vector<interval_pos>(ALPHABET_SIZE, interval_pos());
 
-        ulint idx = 0;
+        std::vector<bool> sampled_runs = std::vector<bool>();
 
         ulint b = 0;
         ulint i = 0;
         while (i < r) 
         {
-            if (i % idx_sampling == 0)
-            {
-                samples[i / idx_sampling] = idx;
-            }
-
             LF_table::LF_row curr = LF_rows.get(i);
 
             block_chars.push_back(curr.character);
@@ -115,7 +114,11 @@ public:
             block_lens.push_back(curr.length);
             block_offsets.push_back(curr.offset);
 
-            idx += curr.length;
+            sampled_runs.push_back(i % idx_rate == 0);
+            for (size_t j = 1; j <= curr.length; j++)
+            {
+                sampled_runs.push_back(false);
+            }
 
             if (!last_c_pos.count(curr.character)) {
                 last_c_pos.insert(std::pair<char, ulint>(curr.character, block_chars.size() - 1));
@@ -175,6 +178,10 @@ public:
                 ++b;
             }
         }
+
+        idx_samples = bool_to_bit_vec<idx_vec>(sampled_runs);
+        idx_pred = idx_rank(&idx_samples);
+        run_idx = idx_select(&idx_samples);
     }
 
     block& get_block(ulint run)
@@ -252,8 +259,8 @@ public:
     // For a general interval position, return the idx wrt. the BWT
     ulint interval_to_idx(interval_pos pos)
     {
-        ulint sample_run = (pos.run / idx_sampling)*idx_sampling;
-        ulint idx = samples[pos.run / idx_sampling];
+        ulint sample_run = (pos.run / idx_rate)*idx_rate;
+        ulint idx = run_idx(pos.run / idx_rate);
         while (sample_run < pos.run)
         {
             idx += get_length(sample_run++);
@@ -267,21 +274,10 @@ public:
     interval_pos idx_to_interval(ulint idx)
     {
         assert(idx < n);
-        // Get first element equal to or greater than idx (runs are sorted, so O(lg n) using binary search)
-        auto base = std::lower_bound(samples.begin(), samples.end(), idx);
-        if(*base == idx)
-        {
-            // No offset, so we are at reduced position
-            return interval_pos(std::distance(samples.begin(), base)*idx_sampling, 0);
-        }
-        else
-        {
-            // Index in sampling array of predecessor (minus 1, since it is first element greater)
-            --base;
-            ulint s_i = std::distance(samples.begin(), base);
-            // Offset is difference between predecessor and true value, reduce to find true position
-            return reduced_pos(interval_pos(s_i*idx_sampling, idx-(*base)));
-        }
+        // Get first sampled run idx equal to or greater than idx
+        ulint base = idx_pred(idx + 1);
+        // Offset is difference between predecessor and true value, reduce to find true position
+        return reduced_pos(interval_pos(base*idx_rate, idx-base));
     }
 
     /* serialize the interval block to the ostream
@@ -304,18 +300,10 @@ public:
 
         for(size_t i = 0; i < size; ++i)
         {
-            written_bytes += blocks[i].serialize(out,v,"block_table_" + std::to_string(i));
+           written_bytes += blocks[i].serialize(out,v,"block_table_" + std::to_string(i));
         }
 
-        size = samples.size();
-        out.write((char *)&size, sizeof(size));
-        written_bytes += sizeof(size);
-
-        for(size_t i = 0; i < size; ++i)
-        {
-            out.write((char *)&samples[i], sizeof(samples[i]));
-            written_bytes += sizeof(samples[i]);
-        }
+        written_bytes += idx_samples.serialize(out, v, "idx_samples");
 
         return written_bytes;
     }
@@ -337,12 +325,9 @@ public:
             blocks[i].load(in);
         }
 
-        in.read((char *)&size, sizeof(size));
-        samples = std::vector<ulint>(size);
-        for(size_t i = 0; i < size; ++i)
-        {
-            in.read((char *)&samples[i], sizeof(samples[i]));
-        }
+        idx_samples.load(in);
+        idx_pred = idx_rank(&idx_samples);
+        run_idx = idx_select(&idx_samples);
     }
 };
 
