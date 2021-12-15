@@ -165,7 +165,7 @@ public:
         {
             return prior_block_LF[c];
         }
-        ulint k_prime = heads.select(c_rank);
+        ulint k_prime = heads.select(c_rank, c);
         // If our k changed, set the offset to the last character in that prior run
         ulint d_prime = (k != k_prime) ? lengths[k_prime] - 1 : d;
 
@@ -182,7 +182,7 @@ public:
         {
             return next_block_LF[c];
         }
-        ulint k_prime = heads.select(c_rank + 1);
+        ulint k_prime = heads.select(c_rank + 1, c);
         // If k changed, set it to the first character of the next run
         ulint d_prime = (k != k_prime) ? 0 : d;
 
