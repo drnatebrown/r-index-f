@@ -255,6 +255,8 @@ public:
             idx += get_length(sample_run++);
         }
         idx += pos.offset;
+
+        return idx;
     }
 
     /* serialize the interval block to the ostream
