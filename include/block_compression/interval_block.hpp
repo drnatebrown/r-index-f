@@ -143,9 +143,14 @@ public:
         return idx;
     }
 
-    interval_pos has_next_LF(const char c)
+    bool has_next_LF(const char c)
     {
         return next_block_LF[c].is_set();
+    }
+
+    bool has_prior_LF(const char c)
+    {
+        return prior_block_LF[c].is_set();
     }
 
     void set_next_LF(const char c, interval_pos next_LF)
