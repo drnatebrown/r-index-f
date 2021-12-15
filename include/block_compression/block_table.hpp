@@ -119,7 +119,7 @@ public:
                     interval_pos next_c = interval_pos(k, d);
 
                     ulint b_curr = b;
-                    while (b_curr > 0 && !blocks[b_curr-1].get_next_LF(curr.character).is_set())
+                    while (b_curr > 0 && !blocks[b_curr-1].has_next_LF(curr.character))
                     {
                         blocks[b_curr-1].set_next_LF(curr.character, next_c);
                         --b_curr;

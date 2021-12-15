@@ -138,9 +138,14 @@ public:
         return offsets[k];
     }
 
-    interval_pos get_next_LF(const char c)
+    const ulint get_idx()
     {
-        return next_block_LF[c];
+        return idx;
+    }
+
+    interval_pos has_next_LF(const char c)
+    {
+        return next_block_LF[c].is_set();
     }
 
     void set_next_LF(const char c, interval_pos next_LF)
