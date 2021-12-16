@@ -45,6 +45,51 @@ void test_invert(r_index_f<> rif, LF_table table)
     }
 }
 
+void test_prior_LF(r_index_f<> rif, LF_table table)
+{
+    std::string pattern = "CGATATCGCACAGATC"; // Occurs in example, should implement dynamic test
+    interval_pos curr = rif.get_table().end();
+    for (size_t i = 0; i < pattern.size(); i++)
+    {
+        char c = pattern[i];
+        ulint k = curr.run;
+        ulint d = curr.offset;
+        while(table.get(k).character != c)
+        {
+            d = table.get(--k).length - 1;
+        }
+
+        auto[k_prime, d_prime] = table.LF(k, d);
+        curr = rif.get_table().LF_prior(curr, c);
+        
+        assert(k_prime == curr.run);
+        assert(d_prime == curr.offset);
+    }
+}
+
+void test_next_LF(r_index_f<> rif, LF_table table)
+{
+    std::string pattern = "CGATATCGCACAGATC"; // Occurs in example, should implement dynamic test
+    interval_pos curr = rif.get_table().begin();
+    for (size_t i = 0; i < pattern.size(); i++)
+    {
+        char c = pattern[i];
+        ulint k = curr.run;
+        ulint d = curr.offset;
+        while(table.get(k).character != c)
+        {
+            k++;
+            d = 0;
+        }
+
+        auto[k_prime, d_prime] = table.LF(k, d);
+        curr = rif.get_table().LF_next(curr, c);
+        
+        assert(k_prime == curr.run);
+        assert(d_prime == curr.offset);
+    }
+}
+
 // Test pos to idx
 void test_idx_samples(r_index_f<> rif)
 {
@@ -88,6 +133,10 @@ int main(int argc, char *const argv[])
 
     rif.mem_stats();
     rif.bwt_stats();
+    test_prior_LF(rif, table);
+    verbose("R-Index-F Prior Steps Successful");
+    test_next_LF(rif, table);
+    verbose("R-Index-F Next Steps Successful");
     test_invert(rif, table);
     verbose("R-Index-F Inversion Successful");
     test_idx_samples(rif);

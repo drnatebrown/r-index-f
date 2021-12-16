@@ -159,7 +159,13 @@ public:
                 return interval_pos();
             }
         }
-        ulint k_prime = heads.select(c_rank, c);
+        // We subtract 1 to maintain 0-based rank after ensuring it is not 0, since we use unsigned values
+        else
+        {
+            c_rank -= 1;
+        }
+
+        ulint k_prime = heads.select(c_rank + 1, c);
         // If our k changed, set the offset to the last character in that prior run
         ulint d_prime = (k != k_prime) ? lengths[k_prime] - 1 : d;
 

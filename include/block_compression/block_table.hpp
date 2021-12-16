@@ -115,7 +115,7 @@ public:
             block_offsets.push_back(curr.offset);
 
             sampled_runs.push_back(i % idx_rate == 0);
-            for (size_t j = 1; j <= curr.length; j++)
+            for (size_t j = 1; j < curr.length; j++)
             {
                 sampled_runs.push_back(false);
             }
@@ -259,8 +259,9 @@ public:
     // For a general interval position, return the idx wrt. the BWT
     ulint interval_to_idx(interval_pos pos)
     {
-        ulint sample_run = (pos.run / idx_rate)*idx_rate;
-        ulint idx = run_idx(pos.run / idx_rate);
+        ulint sample_rank = pos.run / idx_rate;
+        ulint sample_run = sample_rank*idx_rate;
+        ulint idx = run_idx(sample_rank + 1);
         while (sample_run < pos.run)
         {
             idx += get_length(sample_run++);
