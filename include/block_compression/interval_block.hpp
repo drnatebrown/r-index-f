@@ -39,7 +39,7 @@ template  < ulint block_size = 65536,
 class interval_block
 {
 private:
-    typedef bit_vector::select_1_type bv_select_1;
+    typedef typename bit_vec::select_1_type bv_select_1;
 
     // Keep Wavelet Tree for now
     // Interval Heads stored in Wavelet Tree
@@ -67,19 +67,6 @@ private:
         return interval_pos(q, d_prime);
     }
 
-    // Convert boolean vector to specified bit vector
-    bit_vec bool_to_bit_vec(vector<bool> &b)
-    {
-		if(b.size()==0) return bit_vec();
-
-		bit_vector bv(b.size());
-
-		for(size_t i = 0; i < b.size(); ++i)
-			bv[i] = b[i];
-
-		return bit_vec(bv);
-	}
-
 public:
     interval_block() {}
 
@@ -97,7 +84,7 @@ public:
         {
             if(!diff_vec[i].empty())
             {
-                char_diff_vec[i] = bool_to_bit_vec(diff_vec[i]);
+                char_diff_vec[i] = bool_to_bit_vec<bit_vec>(diff_vec[i]);
                 char_diff_select[i] = bv_select_1(&char_diff_vec[i]);
             }
         }
@@ -172,7 +159,13 @@ public:
                 return interval_pos();
             }
         }
-        ulint k_prime = heads.select(c_rank, c);
+        // We subtract 1 to maintain 0-based rank after ensuring it is not 0, since we use unsigned values
+        else
+        {
+            c_rank -= 1;
+        }
+
+        ulint k_prime = heads.select(c_rank + 1, c);
         // If our k changed, set the offset to the last character in that prior run
         ulint d_prime = (k != k_prime) ? lengths[k_prime] - 1 : d;
 
