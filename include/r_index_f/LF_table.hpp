@@ -24,6 +24,9 @@
 
 #include <common.hpp>
 
+#include <sdsl/structure_tree.hpp>
+#include <sdsl/util.hpp>
+
 using namespace std;
 
 class LF_table
@@ -46,6 +49,8 @@ public:
         ulint length;
         ulint offset;
     };
+
+    LF_table() {}
 
     // TODO: Add builder for BWT (not heads/lengths)
     LF_table(std::ifstream &heads, std::ifstream &lengths)
@@ -142,6 +147,71 @@ public:
         }
 
 	    return std::make_pair(next_interval, next_offset);
+    }
+
+    std::string get_file_extension() const
+    {
+        return ".LF_table";
+    }
+
+    /* serialize to the ostream
+    * \param out     the ostream
+    */
+    size_t serialize(std::ostream &out, sdsl::structure_tree_node *v = nullptr, std::string name ="")
+    {
+        sdsl::structure_tree_node *child = sdsl::structure_tree::add_child(v, name, sdsl::util::class_name(*this));
+        size_t written_bytes = 0;
+
+        out.write((char *)&n, sizeof(n));
+        written_bytes += sizeof(n);
+
+        out.write((char *)&r, sizeof(r));
+        written_bytes += sizeof(r);
+
+        size_t size = chars.size();
+        out.write((char *)&size, sizeof(size));
+        written_bytes += sizeof(size);
+
+        for(size_t i = 0; i < size; ++i)
+        {
+            out.write((char *)&chars[i], sizeof(chars[i]));
+            written_bytes += sizeof(chars[i]);
+
+            out.write((char *)&intervals[i], sizeof(intervals[i]));
+            written_bytes += sizeof(intervals[i]);
+
+            out.write((char *)&lens[i], sizeof(lens[i]));
+            written_bytes += sizeof(lens[i]);
+
+            out.write((char *)&offsets[i], sizeof(offsets[i]));
+            written_bytes += sizeof(offsets[i]);
+        }
+
+        return written_bytes;
+    }
+
+    /* load from the istream
+    * \param in the istream
+    */
+    void load(std::istream &in)
+    {
+        size_t size;
+
+        in.read((char *)&n, sizeof(n));
+        in.read((char *)&r, sizeof(r));
+
+        in.read((char *)&size, sizeof(size));
+        chars = std::vector<char>(size);
+        intervals = std::vector<ulint>(size);
+        lens = std::vector<ulint>(size);
+        offsets = std::vector<ulint>(size);
+        for(size_t i = 0; i < size; ++i)
+        {
+            in.read((char *)&chars[i], sizeof(chars[i]));
+            in.read((char *)&intervals[i], sizeof(intervals[i]));
+            in.read((char *)&lens[i], sizeof(lens[i]));
+            in.read((char *)&offsets[i], sizeof(offsets[i]));
+        }
     }
 };
 

@@ -47,6 +47,7 @@ class r_index_f
 {
 public:
     typedef std::pair<interval_pos, interval_pos> range_t;
+    typedef block_table<block_size, idx_sampling, wt_t, bit_vec, dac_vec> table;
 
     r_index_f() {}
 
@@ -66,7 +67,22 @@ public:
         ifs_heads.seekg(0);
         ifs_len.seekg(0);
         LF_table temp(ifs_heads, ifs_len);
-        B_table = block_table<block_size, idx_sampling, wt_t, bit_vec, dac_vec>(temp);
+        B_table = table(temp);
+        std::chrono::high_resolution_clock::time_point t_insert_end = std::chrono::high_resolution_clock::now();
+
+        verbose("Block-Table construction complete");
+        verbose("Memory peak: ", malloc_count_peak());
+        verbose("Elapsed time (s): ", std::chrono::duration<double, std::ratio<1>>(t_insert_end - t_insert_start).count());
+        mem_stats();
+        bwt_stats();
+    }
+
+    r_index_f(LF_table t) {
+        verbose("Building the R-Index-F using Block Table Compression from LF Table Construction");
+
+        std::chrono::high_resolution_clock::time_point t_insert_start = std::chrono::high_resolution_clock::now();
+        B_table = table(t);
+
         std::chrono::high_resolution_clock::time_point t_insert_end = std::chrono::high_resolution_clock::now();
 
         verbose("Block-Table construction complete");
@@ -109,6 +125,12 @@ public:
     char get_char(interval_pos pos)
     {
         return B_table.get_char(pos);
+    }
+
+    // Return underlying table (not recommended, add methods to access its capabilities)
+    table get_table()
+    {
+        return B_table;
     }
 
     void mem_stats()
@@ -158,7 +180,7 @@ public:
     }
 
 private:
-    block_table<block_size, idx_sampling, wt_t, bit_vec, dac_vec> B_table;
+    table B_table;
 };
 
 #endif /* end of include guard: _R_INDEX_F_HH */

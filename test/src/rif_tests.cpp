@@ -28,22 +28,34 @@
 #include <r_index_f.hpp>
 #include <malloc_count.h>
 
-void invert_bwt(r_index_f<> rif) 
+// Check inversion is correct (compared to explicit table)
+void test_invert(r_index_f<> rif, LF_table table) 
 {
-    verbose("Inverting BWT using R-Index-F (B table)");
-    std::chrono::high_resolution_clock::time_point t_insert_start = std::chrono::high_resolution_clock::now();
     ulint steps = 0;
     interval_pos pos(0,0);
-    char c;
-    while((c = rif.get_char(pos)) > TERMINATOR) 
+    char c_rif;
+    while((c_rif = rif.get_char(pos)) > TERMINATOR) 
     {
+        auto[table_k, table_d] = table.LF(pos.run, pos.offset);
         pos = rif.LF(pos);
+
+        assert(pos.run == table_k);
+        assert(pos.offset == table_d);
         ++steps;
     }
-    std::chrono::high_resolution_clock::time_point t_insert_end = std::chrono::high_resolution_clock::now();
-    verbose("BWT Inverted using B Table");
-    verbose("Elapsed time (s): ", std::chrono::duration<double, std::ratio<1>>(t_insert_end - t_insert_start).count());
-    verbose("Average step (ns): ", std::chrono::duration<double, std::ratio<1, 1000000000>>((t_insert_end - t_insert_start)/steps).count());
+}
+
+// Test pos to idx
+void test_idx_samples(r_index_f<> rif)
+{
+    interval_pos curr = interval_pos(0,0);
+    for (int i = 0; i < rif.size(); i++)
+    {
+        curr = rif.get_table().reduced_pos(curr);
+        assert(i == rif.interval_to_idx(curr));
+
+        curr++;
+    }
 }
 
 int main(int argc, char *const argv[])
@@ -55,12 +67,18 @@ int main(int argc, char *const argv[])
     std::chrono::high_resolution_clock::time_point t_insert_start = std::chrono::high_resolution_clock::now();
 
     r_index_f<> rif;
-
     std::string filename_rif = args.filename + rif.get_file_extension();
 
     ifstream fs_rif(filename_rif);
     rif.load(fs_rif);
     fs_rif.close();
+
+    LF_table table;
+    std::string filename_LF = args.filename + table.get_file_extension();
+
+    ifstream fs_table(filename_LF);
+    table.load(fs_table);
+    fs_table.close();
 
     std::chrono::high_resolution_clock::time_point t_insert_end = std::chrono::high_resolution_clock::now();
 
@@ -70,7 +88,10 @@ int main(int argc, char *const argv[])
 
     rif.mem_stats();
     rif.bwt_stats();
-    invert_bwt(rif);
+    test_invert(rif, table);
+    verbose("R-Index-F Inversion Successful");
+    test_idx_samples(rif);
+    verbose("R-Index-F Indices Successful");
 
     return 0;
 }
