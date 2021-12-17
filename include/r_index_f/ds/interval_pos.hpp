@@ -19,8 +19,8 @@
    \date 11/19/2021
 */
 
-#ifndef _INTERVAL_POS_F_HH
-#define _INTERVAL_POS_F_HH
+#ifndef _INTERVAL_POS_HH
+#define _INTERVAL_POS_HH
 
 #include <common.hpp>
 
