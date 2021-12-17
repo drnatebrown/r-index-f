@@ -32,8 +32,7 @@
 
 using namespace sdsl;
 
-template  < ulint block_size = 65536,
-            class wt_t = wt_huff<bit_vector>,
+template  < class wt_t = wt_huff<bit_vector>,
             class bit_vec = bit_vector,
             class dac_vec = dac_vector<> >
 class interval_block
@@ -194,23 +193,6 @@ public:
         ulint d_prime = (k != k_prime) ? 0 : d;
 
         return LF(k_prime, d_prime, c, c_rank);
-    }
-
-    // Reduces position until offset shorter than length of interval, or returns if at end of block
-    interval_pos reduce(interval_pos pos)
-    {
-        ulint q = pos.run;
-        ulint k = pos.run % block_size;
-        ulint d = pos.offset;
-        ulint next_len;
-	    while (k < lengths.size() && d >= (next_len = lengths[k])) 
-        {
-            d -= next_len;
-            ++k;
-            ++q;
-        }
-
-	    return interval_pos(q, d);
     }
 
     /* serialize the interval block to the ostream

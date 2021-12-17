@@ -40,13 +40,10 @@ using namespace sdsl;
 template  < ulint block_size = 1048576, // 2^20
             ulint idx_rate = 2,
             class idx_vec = idx_bit_vector<>,
-            class wt_t = wt_huff<bit_vector>,
-            class bit_vec = bit_vector,
-            class dac_vec = dac_vector<> >
+            class block = interval_block<>>
 class block_table
 {
 private:
-    typedef interval_block<block_size, wt_t, bit_vec, dac_vec> block;
 
     vector<block> blocks;
     idx_vec idx_samples;
@@ -233,13 +230,17 @@ public:
             return pos;
         }
 
-        interval_pos curr = pos;
-        while (curr.offset >= get_length(curr))
+        ulint q = pos.run;
+        ulint d = pos.offset;
+        ulint next_len;
+        bool reduced;
+	    while (d >= (next_len = get_length(q)))
         {
-            curr = get_block(curr).reduce(curr);
+            d -= next_len;
+            ++q;
         }
 
-        return curr;
+        return interval_pos(q, d);
     }
 
     interval_pos begin()

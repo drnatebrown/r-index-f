@@ -40,17 +40,11 @@
 using namespace sdsl;
 using namespace std;
 
-template  < ulint block_size = 1048576, // 2^20
-            ulint idx_rate = 2,
-            class idx_vec = idx_bit_vector<>,
-            class wt_t = wt_huff<bit_vector>,
-            class bit_vec = bit_vector,
-            class dac_vec = dac_vector<> >
+template <class table = block_table<>>
 class r_index_f
 {
 public:
     typedef std::pair<interval_pos, interval_pos> range_t;
-    typedef block_table<block_size, idx_rate, idx_vec, wt_t, bit_vec, dac_vec> table;
 
     r_index_f() {}
 
