@@ -233,7 +233,6 @@ public:
         ulint q = pos.run;
         ulint d = pos.offset;
         ulint next_len;
-        bool reduced;
 	    while (d >= (next_len = get_length(q)))
         {
             d -= next_len;
