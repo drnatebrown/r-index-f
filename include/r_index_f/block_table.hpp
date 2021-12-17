@@ -27,7 +27,7 @@
 
 #include <ds/interval_block.hpp>
 #include <ds/interval_pos.hpp>
-#include <ds/idx_list.hpp>
+#include <ds/idx_bit_vector.hpp>
 
 #include <sdsl/rmq_support.hpp>
 #include <sdsl/int_vector.hpp>
@@ -38,8 +38,8 @@
 using namespace sdsl;
 
 template  < ulint block_size = 1048576, // 2^20
-            ulint idx_rate = 8,
-            class idx_vec = idx_list,
+            ulint idx_rate = 2,
+            class idx_vec = idx_bit_vector<>,
             class wt_t = wt_huff<bit_vector>,
             class bit_vec = bit_vector,
             class dac_vec = dac_vector<> >
