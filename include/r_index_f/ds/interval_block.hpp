@@ -254,6 +254,23 @@ public:
         return written_bytes;
     }
 
+    // Reduces position until offset shorter than length of interval, or returns if at end of block
+    interval_pos reduce(interval_pos pos)
+    {
+        ulint q = pos.run;
+        ulint k = pos.run % block_size;
+        ulint d = pos.offset;
+        ulint next_len;
+	    while (k < lengths.size() && d >= (next_len = lengths[k])) 
+        {
+            d -= next_len;
+            ++k;
+            ++q;
+        }
+
+	    return interval_pos(q, d);
+    }
+
     /* load the interval block from the istream
     * \param in the istream
     */

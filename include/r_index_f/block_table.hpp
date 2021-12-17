@@ -230,16 +230,13 @@ public:
             return pos;
         }
 
-        ulint q = pos.run;
-        ulint d = pos.offset;
-        ulint next_len;
-	    while (d >= (next_len = get_length(q)))
+        interval_pos curr = pos;
+        while (curr.offset >= get_length(curr))
         {
-            d -= next_len;
-            ++q;
+            curr = get_block(curr).reduce(curr);
         }
 
-        return interval_pos(q, d);
+        return curr;
     }
 
     interval_pos begin()
