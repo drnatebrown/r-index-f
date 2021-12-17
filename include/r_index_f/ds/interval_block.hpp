@@ -195,6 +195,22 @@ public:
         return LF(k_prime, d_prime, c, c_rank);
     }
 
+    // Reduces position until offset shorter than length of interval, or returns if at end of block
+    interval_pos reduce(interval_pos pos, k)
+    {
+        ulint q = pos.run;
+        ulint d = pos.offset;
+        ulint next_len;
+	    while (k < lengths.size() && d >= (next_len = lengths[k])) 
+        {
+            d -= next_len;
+            ++k;
+            ++q;
+        }
+
+	    return interval_pos(q, d);
+    }
+
     /* serialize the interval block to the ostream
     * \param out     the ostream
     */
@@ -252,23 +268,6 @@ public:
 
         sdsl::structure_tree::add_size(child, written_bytes);
         return written_bytes;
-    }
-
-    // Reduces position until offset shorter than length of interval, or returns if at end of block
-    interval_pos reduce(interval_pos pos)
-    {
-        ulint q = pos.run;
-        ulint k = pos.run % block_size;
-        ulint d = pos.offset;
-        ulint next_len;
-	    while (k < lengths.size() && d >= (next_len = lengths[k])) 
-        {
-            d -= next_len;
-            ++k;
-            ++q;
-        }
-
-	    return interval_pos(q, d);
     }
 
     /* load the interval block from the istream

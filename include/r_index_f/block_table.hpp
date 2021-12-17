@@ -233,7 +233,7 @@ public:
         interval_pos curr = pos;
         while (curr.offset >= get_length(curr))
         {
-            curr = get_block(curr).reduce(curr);
+            curr = get_block(curr).reduce(curr, row(curr));
         }
 
         return curr;
