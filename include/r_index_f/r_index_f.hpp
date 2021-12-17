@@ -25,8 +25,9 @@
 #include <common.hpp>
 #include <LF_table.hpp>
 #include <block_table.hpp>
-#include <interval_block.hpp>
-#include <interval_pos.hpp>
+
+#include <ds/interval_block.hpp>
+#include <ds/interval_pos.hpp>
 
 #include <malloc_count.h>
 
@@ -38,9 +39,9 @@
 using namespace sdsl;
 using namespace std;
 
-template  < ulint block_size = 65536,
-            ulint idx_rate = 2,
-            class idx_vec = sd_vector<>,
+template  < ulint block_size = 1048576, // 2^20
+            ulint idx_rate = 8,
+            class idx_vec = idx_list,
             class wt_t = wt_huff<bit_vector>,
             class bit_vec = bit_vector,
             class dac_vec = dac_vector<> >

@@ -24,8 +24,10 @@
 
 #include <common.hpp>
 #include <LF_table.hpp>
-#include <interval_block.hpp>
-#include <interval_pos.hpp>
+
+#include <ds/interval_block.hpp>
+#include <ds/interval_pos.hpp>
+#include <ds/idx_list.hpp>
 
 #include <sdsl/rmq_support.hpp>
 #include <sdsl/int_vector.hpp>
@@ -35,9 +37,9 @@
 
 using namespace sdsl;
 
-template  < ulint block_size = 65536, // 2^16
-            ulint idx_rate = 2,
-            class idx_vec = sd_vector<>,
+template  < ulint block_size = 1048576, // 2^20
+            ulint idx_rate = 8,
+            class idx_vec = idx_list,
             class wt_t = wt_huff<bit_vector>,
             class bit_vec = bit_vector,
             class dac_vec = dac_vector<> >
@@ -45,13 +47,9 @@ class block_table
 {
 private:
     typedef interval_block<block_size, wt_t, bit_vec, dac_vec> block;
-    typedef typename idx_vec::rank_1_type idx_rank;
-    typedef typename idx_vec::select_1_type idx_select;
 
     vector<block> blocks;
     idx_vec idx_samples;
-    idx_rank idx_pred;
-    idx_select run_idx;
 
     ulint r;
     ulint n;
@@ -179,9 +177,7 @@ public:
             }
         }
 
-        idx_samples = bool_to_bit_vec<idx_vec>(sampled_runs);
-        idx_pred = idx_rank(&idx_samples);
-        run_idx = idx_select(&idx_samples);
+        idx_samples = idx_vec(sampled_runs);
     }
 
     block& get_block(ulint run)
@@ -261,7 +257,7 @@ public:
     {
         ulint sample_rank = pos.run / idx_rate;
         ulint sample_run = sample_rank*idx_rate;
-        ulint idx = run_idx(sample_rank + 1);
+        ulint idx = idx_samples.sample(sample_rank);
         while (sample_run < pos.run)
         {
             idx += get_length(sample_run++);
@@ -276,7 +272,7 @@ public:
     {
         assert(idx < n);
         // Get first sampled run idx equal to or greater than idx
-        ulint base = idx_pred(idx + 1);
+        ulint base = idx_samples.predecessor(idx);
         // Offset is difference between predecessor and true value, reduce to find true position
         return reduced_pos(interval_pos(base*idx_rate, idx-base));
     }
@@ -327,8 +323,6 @@ public:
         }
 
         idx_samples.load(in);
-        idx_pred = idx_rank(&idx_samples);
-        run_idx = idx_select(&idx_samples);
     }
 };
 

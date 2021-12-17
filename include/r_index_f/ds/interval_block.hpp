@@ -23,7 +23,7 @@
 #define _I_BLOCK_HH
 
 #include <common.hpp>
-#include <interval_pos.hpp>
+#include <ds/interval_pos.hpp>
 
 #include <sdsl/rmq_support.hpp>
 #include <sdsl/int_vector.hpp>
