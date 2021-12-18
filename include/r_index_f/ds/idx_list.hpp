@@ -35,7 +35,7 @@ public:
 
     idx_list() {}
 
-    idx_list(vector<bool> vec) {
+    idx_list(std::vector<bool> vec) {
         samples = std::vector<ulint>();
 
         for(size_t i = 0; i < vec.size(); ++i)

@@ -94,6 +94,7 @@ public:
         std::vector<vector<bool>> bit_diff = std::vector<vector<bool>>(ALPHABET_SIZE, vector<bool>());
 
         // Where characters prior to block mapped to, in case we can't find that character when we LF
+        std::vector<bool> char_prior = std::vector<bool>(ALPHABET_SIZE, false);
         std::vector<interval_pos> prior_LF = std::vector<interval_pos>(ALPHABET_SIZE, interval_pos());
 
         std::vector<bool> sampled_runs = std::vector<bool>();
@@ -124,7 +125,7 @@ public:
                 // For all blocks prior without set values to find the next c's mapping, loop back and set
                 if (b > 0)
                 {
-                    auto[k, d] = LF_rows.LF(curr.interval, curr.offset);
+                    auto[k, d] = LF_rows.LF(i, curr.offset);
                     interval_pos next_c = interval_pos(k, d);
 
                     ulint b_curr = b;
@@ -150,7 +151,7 @@ public:
             // End of block of intervals, update block table
             if (i % block_size == 0 || i >= r)
             {        
-                blocks[b] = block(block_chars, block_c_map, bit_diff, block_lens, block_offsets, prior_LF);
+                blocks[b] = block(block_chars, block_c_map, bit_diff, block_lens, block_offsets, char_prior, prior_LF);
 
                 for(auto const& [c, pos] : last_c_pos)
                 {
@@ -158,6 +159,8 @@ public:
                     ulint run = b*block_size + pos;
                     // Perform LF step from the last seen character in this run (which is at offset equal to last character, one minus length)
                     auto[k, d] = LF_rows.LF(run, block_lens[pos] - 1);
+
+                    char_prior[c] = true;
                     prior_LF[c] = interval_pos(k, d);
                 }
 

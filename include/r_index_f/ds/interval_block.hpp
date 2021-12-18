@@ -40,6 +40,9 @@ class interval_block
 private:
     typedef typename bit_vec::select_1_type bv_select_1;
 
+    // O(ALPHABET_SIZE)-space bits determining if a character was present in this block, used for serialization/error checks
+    bit_vec char_present;
+
     // Keep Wavelet Tree for now
     // Interval Heads stored in Wavelet Tree
     wt_t heads;
@@ -54,7 +57,9 @@ private:
     dac_vec offsets;
 
     // Stores prior and next block LF mapping for a character (for block overruns)
+    bit_vec char_prior;
     std::vector<interval_pos> prior_block_LF;
+    bit_vec char_next;
     std::vector<interval_pos> next_block_LF;
 
     // For a row k with offset d, character c of rank c_rank, compute it's LF
@@ -71,27 +76,37 @@ public:
 
     // Simple constructor for block, work to compute values done externally (i.e. no logic enforced here)
     interval_block(std::vector<char> chars, std::vector<ulint> base_map, std::vector<vector<bool>> diff_vec,
-                    std::vector<ulint> lens, std::vector<ulint> offs, std::vector<interval_pos> prior_LF) {
-        
+                    std::vector<ulint> lens, std::vector<ulint> offs, std::vector<bool> has_prior, std::vector<interval_pos> prior_LF) {
+        assert(base_map.size() == ALPHABET_SIZE);
+        assert(diff_vec.size() == ALPHABET_SIZE);
+        assert(has_prior.size() == ALPHABET_SIZE);
+        assert(prior_LF.size() == ALPHABET_SIZE);
+
+        char_present = bit_vec(ALPHABET_SIZE, false);
+
         construct_im(heads, std::string(chars.begin(), chars.end()).c_str(), 1);
 
         char_base_interval = base_map;
 
-        char_diff_vec = std::vector<bit_vec>(diff_vec.size());
-        char_diff_select = std::vector<bv_select_1>(diff_vec.size());
-        for(size_t i = 0; i < diff_vec.size(); i++)
+        char_diff_vec = std::vector<bit_vec>(ALPHABET_SIZE);
+        char_diff_select = std::vector<bv_select_1>(ALPHABET_SIZE);
+        for(size_t i = 0; i < ALPHABET_SIZE; i++)
         {
             if(!diff_vec[i].empty())
             {
                 char_diff_vec[i] = bool_to_bit_vec<bit_vec>(diff_vec[i]);
                 char_diff_select[i] = bv_select_1(&char_diff_vec[i]);
+
+                char_present[i] = true;
             }
         }
 
         lengths = dac_vec(lens);
         offsets = dac_vec(offs);
 
+        char_prior = bool_to_bit_vec<bit_vec>(has_prior);
         prior_block_LF = prior_LF;
+        char_next = bit_vec(ALPHABET_SIZE, false);
         next_block_LF = std::vector<interval_pos>(ALPHABET_SIZE, interval_pos());
     }
 
@@ -119,18 +134,19 @@ public:
         return offsets[k];
     }
 
-    bool has_next_LF(const char c)
-    {
-        return next_block_LF[c].is_set();
-    }
-
     bool has_prior_LF(const char c)
     {
-        return prior_block_LF[c].is_set();
+        return char_prior[c];
+    }
+
+    bool has_next_LF(const char c)
+    {
+        return char_next[c];
     }
 
     void set_next_LF(const char c, interval_pos next_LF)
     {
+        char_next[c] = true;
         next_block_LF[c] = next_LF;
     }
 
@@ -219,51 +235,47 @@ public:
         sdsl::structure_tree_node *child = sdsl::structure_tree::add_child(v, name, sdsl::util::class_name(*this));
         size_t written_bytes = 0;
 
+        // Serliaze character present bit vector
+        char_present.serialize(out, v, "char_present");
+
         // Serialize wavelet tree (heads)
         written_bytes += heads.serialize(out,v,"Heads");
 
-        // Serialize base intervals
-        size_t size = char_base_interval.size();
-        out.write((char*) &size, sizeof(size));
-        written_bytes += sizeof(size);
-        for (const auto& val: char_base_interval)
+        for (size_t i = 0; i < ALPHABET_SIZE; ++i)
         {
-            out.write((char*) &val, sizeof(val));
-            written_bytes += sizeof(val); 
-        }
+            if(char_present[i])
+            {
+                // Serialize base map
+                out.write((char*) &char_base_interval[i], sizeof(char_base_interval[i]));
+                written_bytes += sizeof(char_base_interval[i]); 
 
-        // Serialize diff vector
-        size = char_diff_vec.size();
-        out.write((char*) &size, sizeof(size));
-        written_bytes += sizeof(size);
-        char curr_c = 0;
-        for (const auto& val: char_diff_vec)
-        {
-            written_bytes += val.serialize(out,v,"char_diff_vec_" + std::to_string(curr_c++)); 
+                // Serialize diff vec
+                written_bytes += char_diff_vec[i].serialize(out,v,"char_diff_vec_" + std::to_string(i)); 
+            }
         }
 
         // Serialize DACs (Length/Offset)
         written_bytes += lengths.serialize(out,v,"Lengths");
         written_bytes += offsets.serialize(out,v,"Offsets");
 
+        char_prior.serialize(out, v, "char_prior");
         // Serialize prior char LF (prior block)
-        size = prior_block_LF.size();
-        out.write((char*) &size, sizeof(size));
-        written_bytes += sizeof(size);
-        curr_c = 0;
-        for (const auto& val: prior_block_LF)
+        for (size_t i = 0; i < ALPHABET_SIZE; ++i)
         {
-            written_bytes += val.serialize(out, v, "prior_LF_" + std::to_string(curr_c++));
+            if(char_prior[i])
+            {
+                written_bytes += prior_block_LF[i].serialize(out, v, "prior_LF_" + std::to_string(i));
+            }
         }
 
         // Serialize next char LF (next block)
-        size = next_block_LF.size();
-        out.write((char*) &size, sizeof(size));
-        written_bytes += sizeof(size);
-        curr_c = 0;
-        for (const auto& val: next_block_LF)
+        char_next.serialize(out, v, "char_next");
+        for (size_t i = 0; i < ALPHABET_SIZE; ++i)
         {
-            written_bytes += val.serialize(out, v, "next_LF_" + std::to_string(curr_c++)); 
+            if(char_next[i])
+            {
+                written_bytes += next_block_LF[i].serialize(out, v, "next_LF_" + std::to_string(i)); 
+            }
         }
 
         sdsl::structure_tree::add_size(child, written_bytes);
@@ -275,30 +287,26 @@ public:
     */
     void load(std::istream &in)
     {
+        // Load char present bitvector
+        char_present.load(in);
+
         // Load wavelet tree (heads)
         heads.load(in);
 
-        // Load base interval mapping
-        size_t size;
-        in.read((char *)&size, sizeof(size));
-        char_base_interval = std::vector<ulint>(size);
-        for(size_t i = 0; i < size; ++i)
+        char_base_interval = std::vector<ulint>(ALPHABET_SIZE);
+        char_diff_vec = std::vector<bit_vec>(ALPHABET_SIZE);
+        char_diff_select = std::vector<bv_select_1>(ALPHABET_SIZE);
+        for(size_t i = 0; i < ALPHABET_SIZE; ++i)
         {
-            ulint val;
-            in.read((char *)&val, sizeof(val));
-            char_base_interval[i] = val;
-        }
+            if(char_present[i])
+            {
+                // Read base map
+                in.read((char *)&char_base_interval[i], sizeof(char_base_interval[i]));
 
-        // Load char diff vectors
-        in.read((char *)&size, sizeof(size));
-        char_diff_vec = std::vector<bit_vec>(size);
-        char_diff_select = std::vector<bv_select_1>(size);
-        for(size_t i = 0; i < size; ++i)
-        {
-            bit_vec val;
-            val.load(in);
-            char_diff_vec[i] = val;
-            char_diff_select[i] = bv_select_1(&char_diff_vec[i]);
+                // Load diff vec and select support
+                char_diff_vec[i].load(in);
+                char_diff_select[i] = bv_select_1(&char_diff_vec[i]);
+            }
         }
 
         // Load DACs (Length/Offset)
@@ -306,23 +314,25 @@ public:
         offsets.load(in);
 
         // Load prior char LF (prior block)
-        in.read((char *)&size, sizeof(size));
-        prior_block_LF = std::vector<interval_pos>(size);
-        for(size_t i = 0; i < size; ++i)
+        char_prior.load(in);
+        prior_block_LF = std::vector<interval_pos>(ALPHABET_SIZE);
+        for(size_t i = 0; i < ALPHABET_SIZE; ++i)
         {
-            interval_pos val;
-            val.load(in);
-            prior_block_LF[i] = val;
+            if (char_prior[i])
+            {
+                prior_block_LF[i].load(in);
+            }
         }
 
         // Load next char LF (next block)
-        in.read((char *)&size, sizeof(size));
-        next_block_LF = std::vector<interval_pos>(size);
-        for(size_t i = 0; i < size; ++i)
+        char_next.load(in);
+        next_block_LF = std::vector<interval_pos>(ALPHABET_SIZE);
+        for(size_t i = 0; i < ALPHABET_SIZE; ++i)
         {
-            interval_pos val;
-            val.load(in);
-            next_block_LF[i] = val;
+            if(char_next[i])
+            {
+                next_block_LF[i].load(in);
+            }
         }
     }
 };

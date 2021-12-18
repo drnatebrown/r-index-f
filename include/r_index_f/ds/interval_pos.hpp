@@ -86,9 +86,6 @@ public:
         out.write((char *)&offset, sizeof(offset));
         written_bytes += sizeof(offset);
 
-        out.write((char *)&set, sizeof(set));
-        written_bytes += sizeof(set);
-
         return written_bytes;
     }
 
@@ -97,9 +94,9 @@ public:
     */
     void load(std::istream &in)
     {
+        set = true;
         in.read((char *)&run, sizeof(run));
         in.read((char *)&offset, sizeof(offset));
-        in.read((char *)&set, sizeof(set));
     }
 };
 
