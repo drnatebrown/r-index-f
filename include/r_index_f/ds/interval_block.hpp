@@ -196,7 +196,7 @@ public:
     }
 
     // Reduces position until offset shorter than length of interval, or returns if at end of block
-    interval_pos reduce(interval_pos pos, k)
+    interval_pos reduce(interval_pos pos, ulint k)
     {
         ulint q = pos.run;
         ulint d = pos.offset;
