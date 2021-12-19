@@ -1,4 +1,4 @@
-/* idx_bit_vector.hpp - Sampling idx using bit vector approach
+/* base_bv - Holds interval as base and diff computed using bit vector
     Copyright (C) 2021 Nathaniel Brown
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -12,47 +12,58 @@
     along with this program.  If not, see http://www.gnu.org/licenses/ .
 */
 /*!
-   \file idx_bit_vector.hpp
-   \brief idx_bit_vector.hpp template class wrapper used to access idx sampling using bit vector approach
+   \file base__bv.hpp
+   \brief base_bv.hpp Returns intervals by calculating a difference from a stored base (intervals non-decreasing sequence wrt. character)
    \author Nathaniel Brown
-   \date 16/12/2021
+   \date 18/12/2021
 */
 
-#ifndef _IDX_BV_HH
-#define _IDX_BV_HH
+#ifndef _BASE_BV_HH
+#define _BASE_BV_HH
 
 #include <common.hpp>
+
 #include <sdsl/rmq_support.hpp>
-#include <sdsl/sd_vector.hpp>
+#include <sdsl/int_vector.hpp>
 #include <sdsl/structure_tree.hpp>
 #include <sdsl/util.hpp>
 
-template < class bit_vec = sd_vector<> >
-class idx_bit_vector
+using namespace sdsl;
+
+template<class bv_t = bit_vector >
+class base_bv
 {
 private:
-    typedef typename bit_vec::rank_1_type idx_rank;
-    typedef typename bit_vec::select_1_type idx_select;
+    typedef typename bv_t::select_1_type bv_select_1;
 
-    bit_vec samples;
-    idx_rank pred;
-    idx_select run_sample;
+    ulint base;
+    bv_t diff_bv;
+    bv_select_1 diff_select;
 
 public:
 
-    idx_bit_vector() {}
+    base_bv() {}
 
-    idx_bit_vector(vector<bool> vec) {
-        samples = bool_to_bit_vec<bit_vec>(vec);
-    }
-
-    ulint sample(ulint rank)
+    base_bv(ulint b, std::vector<ulint> diffs) 
     {
-        return run_sample(rank + 1);
+        std::vector<bool> bit_diff = std::vector<bool>();
+        for(size_t i = 0; i < diffs.size(); ++i)
+        {
+            ulint diff = diffs[i];
+            while (diff > 0) {
+                bit_diff.push_back(false);
+                --diff;
+            }
+            bit_diff.push_back(true);
+        }
+
+        diff_bv = bool_to_bit_vec<bv_t>(bit_diff);
+        diff_select = bv_select_1(&diff_bv);
     }
 
-    ulint predecessor(ulint idx) {
-        return pred(idx + 1);
+    ulint get(ulint rank) const
+    {
+        return base + diff_select(rank+1) - rank;
     }
 
     /* serialize the structure to the ostream
@@ -63,7 +74,10 @@ public:
         sdsl::structure_tree_node *child = sdsl::structure_tree::add_child(v, name, sdsl::util::class_name(*this));
         size_t written_bytes = 0;
 
-        written_bytes += samples.serialize(out, v, "idx_bit_vec");
+        out.write((char *)&base, sizeof(base));
+        written_bytes += sizeof(base);
+
+        diff_bv.serialize(out, v, "diff_bv");
 
         return written_bytes;
     }
@@ -73,10 +87,10 @@ public:
     */
     void load(std::istream &in)
     {
-        samples.load(in);
-        pred = idx_rank(&samples);
-        run_sample = idx_select(&samples);
+        in.read((char *)&base, sizeof(base));
+        diff_bv.load(in);
+        diff_select= bv_select_1(&diff_bv);
     }
 };
 
-#endif /* end of include guard: _IDX_BV_HH */
+#endif /* end of include guard: _BASE_BV_HH */

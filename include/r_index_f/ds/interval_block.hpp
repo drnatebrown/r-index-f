@@ -24,49 +24,39 @@
 
 #include <common.hpp>
 #include <ds/interval_pos.hpp>
-
-#include <sdsl/rmq_support.hpp>
-#include <sdsl/int_vector.hpp>
-#include <sdsl/wavelet_trees.hpp>
+#include <ds/heads_wt_w.hpp>
+#include <ds/intervals_rank_w.hpp>
+#include <ds/symbol_map.hpp>
 #include <sdsl/dac_vector.hpp>
 
 using namespace sdsl;
 
-template  < class wt_t = wt_huff<bit_vector>,
-            class bit_vec = bit_vector,
-            class dac_vec = dac_vector<> >
+template  < class heads_t = heads_wt_w<>,
+            class intervals_t = intervals_rank_w<>,
+            class lengths_t = dac_vector<>,
+            class offsets_t = dac_vector<>,
+            class char_map_t = symbol_map<interval_pos> >
 class interval_block
 {
 private:
-    typedef typename bit_vec::select_1_type bv_select_1;
-
-    // O(ALPHABET_SIZE)-space bits determining if a character was present in this block, used for serialization/error checks
-    bit_vec char_present;
-
-    // Keep Wavelet Tree for now
-    // Interval Heads stored in Wavelet Tree
-    wt_t heads;
-
-    // Vectors indexed by byte (ASCII) to compute interval mapping
-    std::vector<ulint> char_base_interval;
-    std::vector<bv_select_1> char_diff_select;
-    std::vector<bit_vec> char_diff_vec;
-
-    // Compact Variable Length DAC for Length/Offset
-    dac_vec lengths;
-    dac_vec offsets;
+    // Heads supporting rank/select/access for character c
+    heads_t heads;
+    // Intervals which return the mapping given a character c and its rank in block
+    intervals_t intervals;
+    // Lengths supporting access
+    lengths_t lengths;
+    // Offsets supporting access
+    offsets_t offsets;
 
     // Stores prior and next block LF mapping for a character (for block overruns)
-    bit_vec char_prior;
-    std::vector<interval_pos> prior_block_LF;
-    bit_vec char_next;
-    std::vector<interval_pos> next_block_LF;
+    char_map_t prior_block_LF;
+    char_map_t next_block_LF;
 
     // For a row k with offset d, character c of rank c_rank, compute it's LF
     interval_pos LF(ulint k, ulint d, char c, ulint c_rank)
     {
         ulint q = get_interval(c, c_rank);
-        ulint d_prime = d + offsets[k];
+        ulint d_prime = d + get_offset(k);
 
         return interval_pos(q, d_prime);
     }
@@ -74,40 +64,14 @@ private:
 public:
     interval_block() {}
 
-    // Simple constructor for block, work to compute values done externally (i.e. no logic enforced here)
-    interval_block(std::vector<char> chars, std::vector<ulint> base_map, std::vector<vector<bool>> diff_vec,
-                    std::vector<ulint> lens, std::vector<ulint> offs, std::vector<bool> has_prior, std::vector<interval_pos> prior_LF) {
-        assert(base_map.size() == ALPHABET_SIZE);
-        assert(diff_vec.size() == ALPHABET_SIZE);
-        assert(has_prior.size() == ALPHABET_SIZE);
-        assert(prior_LF.size() == ALPHABET_SIZE);
+    interval_block(std::vector<char> chars, std::vector<ulint> ints, std::vector<ulint> lens, std::vector<ulint> offs, std::unordered_map<char, interval_pos> prior_LF) {
+        heads = heads_t(chars);
+        intervals = intervals_t(chars, ints);
+        lengths = lengths_t(lens);
+        offsets = offsets_t(offs);
 
-        char_present = bit_vec(ALPHABET_SIZE, false);
-
-        construct_im(heads, std::string(chars.begin(), chars.end()).c_str(), 1);
-
-        char_base_interval = base_map;
-
-        char_diff_vec = std::vector<bit_vec>(ALPHABET_SIZE);
-        char_diff_select = std::vector<bv_select_1>(ALPHABET_SIZE);
-        for(size_t i = 0; i < ALPHABET_SIZE; i++)
-        {
-            if(!diff_vec[i].empty())
-            {
-                char_diff_vec[i] = bool_to_bit_vec<bit_vec>(diff_vec[i]);
-                char_diff_select[i] = bv_select_1(&char_diff_vec[i]);
-
-                char_present[i] = true;
-            }
-        }
-
-        lengths = dac_vec(lens);
-        offsets = dac_vec(offs);
-
-        char_prior = bool_to_bit_vec<bit_vec>(has_prior);
-        prior_block_LF = prior_LF;
-        char_next = bit_vec(ALPHABET_SIZE, false);
-        next_block_LF = std::vector<interval_pos>(ALPHABET_SIZE, interval_pos());
+        prior_block_LF = char_map_t(prior_LF);
+        next_block_LF = char_map_t();
     }
 
     // Return the character at row k
@@ -119,7 +83,7 @@ public:
     // For a given character and it's rank, return the interval mapping (LF)
     const ulint get_interval(const char c, const ulint c_rank)
     {
-        return char_base_interval[c] + char_diff_select[c](c_rank+1) - c_rank;
+        return intervals.get(c, c_rank);
     }
 
     // Get the length at row k
@@ -136,18 +100,17 @@ public:
 
     bool has_prior_LF(const char c)
     {
-        return char_prior[c];
+        return prior_block_LF.contains(c);
     }
 
     bool has_next_LF(const char c)
     {
-        return char_next[c];
+        return next_block_LF.contains(c);
     }
 
     void set_next_LF(const char c, interval_pos next_LF)
     {
-        char_next[c] = true;
-        next_block_LF[c] = next_LF;
+        next_block_LF.insert(std::pair<char, interval_pos>(c, next_LF));
     }
 
     // For row k wih offset d, compute the LF mapping
@@ -217,7 +180,7 @@ public:
         ulint q = pos.run;
         ulint d = pos.offset;
         ulint next_len;
-	    while (k < lengths.size() && d >= (next_len = lengths[k])) 
+	    while (k < lengths.size() && d >= (next_len = get_length(k))) 
         {
             d -= next_len;
             ++k;
@@ -235,48 +198,14 @@ public:
         sdsl::structure_tree_node *child = sdsl::structure_tree::add_child(v, name, sdsl::util::class_name(*this));
         size_t written_bytes = 0;
 
-        // Serliaze character present bit vector
-        char_present.serialize(out, v, "char_present");
 
-        // Serialize wavelet tree (heads)
         written_bytes += heads.serialize(out,v,"Heads");
-
-        for (size_t i = 0; i < ALPHABET_SIZE; ++i)
-        {
-            if(char_present[i])
-            {
-                // Serialize base map
-                out.write((char*) &char_base_interval[i], sizeof(char_base_interval[i]));
-                written_bytes += sizeof(char_base_interval[i]); 
-
-                // Serialize diff vec
-                written_bytes += char_diff_vec[i].serialize(out,v,"char_diff_vec_" + std::to_string(i)); 
-            }
-        }
-
-        // Serialize DACs (Length/Offset)
+        written_bytes += intervals.serialize(out,v,"Intervals");
         written_bytes += lengths.serialize(out,v,"Lengths");
         written_bytes += offsets.serialize(out,v,"Offsets");
 
-        char_prior.serialize(out, v, "char_prior");
-        // Serialize prior char LF (prior block)
-        for (size_t i = 0; i < ALPHABET_SIZE; ++i)
-        {
-            if(char_prior[i])
-            {
-                written_bytes += prior_block_LF[i].serialize(out, v, "prior_LF_" + std::to_string(i));
-            }
-        }
-
-        // Serialize next char LF (next block)
-        char_next.serialize(out, v, "char_next");
-        for (size_t i = 0; i < ALPHABET_SIZE; ++i)
-        {
-            if(char_next[i])
-            {
-                written_bytes += next_block_LF[i].serialize(out, v, "next_LF_" + std::to_string(i)); 
-            }
-        }
+        written_bytes += prior_block_LF.serialize(out,v,"Prior_Block_LF");
+        written_bytes += next_block_LF.serialize(out,v,"Next_Block_LF");
 
         sdsl::structure_tree::add_size(child, written_bytes);
         return written_bytes;
@@ -287,53 +216,13 @@ public:
     */
     void load(std::istream &in)
     {
-        // Load char present bitvector
-        char_present.load(in);
-
-        // Load wavelet tree (heads)
         heads.load(in);
-
-        char_base_interval = std::vector<ulint>(ALPHABET_SIZE);
-        char_diff_vec = std::vector<bit_vec>(ALPHABET_SIZE);
-        char_diff_select = std::vector<bv_select_1>(ALPHABET_SIZE);
-        for(size_t i = 0; i < ALPHABET_SIZE; ++i)
-        {
-            if(char_present[i])
-            {
-                // Read base map
-                in.read((char *)&char_base_interval[i], sizeof(char_base_interval[i]));
-
-                // Load diff vec and select support
-                char_diff_vec[i].load(in);
-                char_diff_select[i] = bv_select_1(&char_diff_vec[i]);
-            }
-        }
-
-        // Load DACs (Length/Offset)
+        intervals.load(in);
         lengths.load(in);
         offsets.load(in);
 
-        // Load prior char LF (prior block)
-        char_prior.load(in);
-        prior_block_LF = std::vector<interval_pos>(ALPHABET_SIZE);
-        for(size_t i = 0; i < ALPHABET_SIZE; ++i)
-        {
-            if (char_prior[i])
-            {
-                prior_block_LF[i].load(in);
-            }
-        }
-
-        // Load next char LF (next block)
-        char_next.load(in);
-        next_block_LF = std::vector<interval_pos>(ALPHABET_SIZE);
-        for(size_t i = 0; i < ALPHABET_SIZE; ++i)
-        {
-            if(char_next[i])
-            {
-                next_block_LF[i].load(in);
-            }
-        }
+        prior_block_LF.load(in);
+        next_block_LF.load(in);
     }
 };
 
