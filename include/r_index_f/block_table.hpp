@@ -77,18 +77,18 @@ public:
         ulint B_len = (r / block_size) + ((r % block_size) != 0);
         blocks = vector<block>(B_len);
 
-        std::vector<char> block_chars = std::vector<char>();
+        std::vector<uchar> block_chars = std::vector<uchar>();
         std::vector<ulint> block_intervals = std::vector<ulint>();
         std::vector<ulint> block_lens = std::vector<ulint>();
         std::vector<ulint> block_offsets = std::vector<ulint>();
 
         // Where characters prior to block mapped to, in case we can't find that character when we LF
-        std::unordered_map<char, interval_pos> prior_LF = std::unordered_map<char, interval_pos>();
+        std::unordered_map<uchar, interval_pos> prior_LF = std::unordered_map<uchar, interval_pos>();
 
         std::vector<bool> sampled_runs = std::vector<bool>();
 
         // Where the last character's position was wrt. current block
-        std::unordered_map<char, ulint> last_c_pos = std::unordered_map<char, ulint>();
+        std::unordered_map<uchar, ulint> last_c_pos = std::unordered_map<uchar, ulint>();
 
         ulint b = 0;
         ulint i = 0;
@@ -143,12 +143,12 @@ public:
                     prior_LF[c] = interval_pos(k, d);
                 }
 
-                block_chars = std::vector<char>();
+                block_chars = std::vector<uchar>();
                 block_intervals = std::vector<ulint>();
                 block_lens = std::vector<ulint>();
                 block_offsets = std::vector<ulint>();
 
-                last_c_pos = std::unordered_map<char, ulint>();
+                last_c_pos = std::unordered_map<uchar, ulint>();
 
                 ++b;
             }
@@ -168,12 +168,12 @@ public:
         return get_block(pos.run);
     }
 
-    char get_char(ulint run) 
+    uchar get_char(ulint run) 
     {
-        return (char) get_block(run).get_char(row(run));
+        return (uchar) get_block(run).get_char(row(run));
     }
 
-    char get_char(interval_pos pos) 
+    uchar get_char(interval_pos pos) 
     {
         return get_char(pos.run);
     }
@@ -193,12 +193,12 @@ public:
         return reduced_pos(get_block(pos).LF(row(pos), pos.offset));
     }
 
-    interval_pos LF_prior(interval_pos pos, char c)
+    interval_pos LF_prior(interval_pos pos, uchar c)
     {
         return reduced_pos(get_block(pos).LF_prior(row(pos), pos.offset, c));
     }
 
-    interval_pos LF_next(interval_pos pos, char c)
+    interval_pos LF_next(interval_pos pos, uchar c)
     {
         return reduced_pos(get_block(pos).LF_next(row(pos), pos.offset, c));
     }

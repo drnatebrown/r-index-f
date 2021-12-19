@@ -104,7 +104,7 @@ public:
         return B_table.LF(pos);
     }
 
-    range_t LF(range_t range, char c)
+    range_t LF(range_t range, uchar c)
     {
         return range_t(B_table.LF_next(range.first, c), B_table.LF_prior(range.second, c));
     }
@@ -119,7 +119,7 @@ public:
         return B_table.interval_to_idx(pos);
     }
 
-    char get_char(interval_pos pos)
+    uchar get_char(interval_pos pos)
     {
         return B_table.get_char(pos);
     }

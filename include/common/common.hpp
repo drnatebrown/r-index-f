@@ -45,6 +45,7 @@
 
 static const uint8_t TERMINATOR = 1;
 typedef unsigned long int ulint;
+typedef unsigned char uchar;
 
 std::string NowTime();
 void _internal_messageInfo(const std::string message);

@@ -53,7 +53,7 @@ private:
     char_map_t next_block_LF;
 
     // For a row k with offset d, character c of rank c_rank, compute it's LF
-    interval_pos LF(ulint k, ulint d, char c, ulint c_rank)
+    interval_pos LF(ulint k, ulint d, uchar c, ulint c_rank)
     {
         ulint q = get_interval(c, c_rank);
         ulint d_prime = d + get_offset(k);
@@ -64,7 +64,7 @@ private:
 public:
     interval_block() {}
 
-    interval_block(std::vector<char> chars, std::vector<ulint> ints, std::vector<ulint> lens, std::vector<ulint> offs, std::unordered_map<char, interval_pos> prior_LF) {
+    interval_block(std::vector<uchar> chars, std::vector<ulint> ints, std::vector<ulint> lens, std::vector<ulint> offs, std::unordered_map<uchar, interval_pos> prior_LF) {
         heads = heads_t(chars);
         intervals = intervals_t(chars, ints);
         lengths = lengths_t(lens);
@@ -81,7 +81,7 @@ public:
     }
 
     // For a given character and it's rank, return the interval mapping (LF)
-    const ulint get_interval(const char c, const ulint c_rank)
+    const ulint get_interval(const uchar c, const ulint c_rank)
     {
         return intervals.get(c, c_rank);
     }
@@ -98,19 +98,19 @@ public:
         return offsets[k];
     }
 
-    bool has_prior_LF(const char c)
+    bool has_prior_LF(const uchar c)
     {
         return prior_block_LF.contains(c);
     }
 
-    bool has_next_LF(const char c)
+    bool has_next_LF(const uchar c)
     {
         return next_block_LF.contains(c);
     }
 
-    void set_next_LF(const char c, interval_pos next_LF)
+    void set_next_LF(const uchar c, interval_pos next_LF)
     {
-        next_block_LF.insert(std::pair<char, interval_pos>(c, next_LF));
+        next_block_LF.insert(std::pair<uchar, interval_pos>(c, next_LF));
     }
 
     // For row k wih offset d, compute the LF mapping
@@ -121,7 +121,7 @@ public:
     }
 
     // Perform the LF mapping for character c prior or at position k with offset d
-    interval_pos LF_prior(const ulint k, const ulint d, const char c)
+    interval_pos LF_prior(const ulint k, const ulint d, const uchar c)
     {
         // Look in row ahead so that the rank includes current position
         ulint c_rank = heads.rank(k + 1, c);
@@ -151,7 +151,7 @@ public:
     }
 
     // Perform the LF mapping for character c succeding or at position k with offset d
-    interval_pos LF_next(const ulint k, const ulint d, const char c)
+    interval_pos LF_next(const ulint k, const ulint d, const uchar c)
     {
         // Count occ of c before position
         ulint c_rank = heads.rank(k, c);

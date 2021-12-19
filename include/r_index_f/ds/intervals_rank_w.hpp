@@ -41,17 +41,17 @@ private:
 public:
     intervals_rank_w() {}
 
-    intervals_rank_w(std::vector<char> characters, std::vector<ulint> intervals) {
+    intervals_rank_w(std::vector<uchar> characters, std::vector<ulint> intervals) {
         assert(characters.size() == intervals.size());
 
         // Concerned with Interval sectioned by character (break into base pointer and difference from prior interval)
-        std::unordered_map<char, ulint> last_c_map = std::unordered_map<char, ulint>();
-        std::unordered_map<char, ulint> block_c_map = std::unordered_map<char, ulint>();
-        std::unordered_map<char, std::vector<ulint>> diff = std::unordered_map<char, std::vector<ulint>>();
+        std::unordered_map<uchar, ulint> last_c_map = std::unordered_map<uchar, ulint>();
+        std::unordered_map<uchar, ulint> block_c_map = std::unordered_map<uchar, ulint>();
+        std::unordered_map<uchar, std::vector<ulint>> diff = std::unordered_map<uchar, std::vector<ulint>>();
 
         for(size_t i = 0; i < characters.size(); ++i) 
         {
-            char character = characters[i];
+            uchar character = characters[i];
             ulint interval = intervals[i];
 
             if (!block_c_map.count(character)) {
@@ -64,16 +64,16 @@ public:
             last_c_map[character] = interval;
         }
 
-        for(size_t i = 0; i < ALPHABET_SIZE; i++)
+        for(size_t i = 0; i < ALPHABET_SIZE; ++i)
         {
             if(diff.count(i))
             {
-                char_map.insert(std::pair<char, interval_t>(i, interval_t(block_c_map[i], diff[i])));
+                char_map.insert(std::pair<uchar, interval_t>(i, interval_t(block_c_map[i], diff[i])));
             }
         }
     }
 
-    ulint get(char c, ulint c_rank)
+    ulint get(uchar c, ulint c_rank)
     {
         return char_map[c].get(c_rank);
     }
@@ -86,7 +86,7 @@ public:
         sdsl::structure_tree_node *child = sdsl::structure_tree::add_child(v, name, sdsl::util::class_name(*this));
         size_t written_bytes = 0;
 
-        char_map.serialize(out, v, "char_map");
+        written_bytes += char_map.serialize(out, v, "char_map");
 
         return written_bytes;
     }

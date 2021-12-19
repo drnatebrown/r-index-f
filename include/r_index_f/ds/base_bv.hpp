@@ -77,7 +77,7 @@ public:
         out.write((char *)&base, sizeof(base));
         written_bytes += sizeof(base);
 
-        diff_bv.serialize(out, v, "diff_bv");
+        written_bytes += diff_bv.serialize(out, v, "diff_bv");
 
         return written_bytes;
     }

@@ -39,16 +39,16 @@ wt_t symbols;
 public:
     heads_wt_w() {}
 
-    heads_wt_w(std::vector<char> chars) {
+    heads_wt_w(std::vector<uchar> chars) {
         construct_im(symbols, std::string(chars.begin(), chars.end()).c_str(), 1);
     }
 
-    ulint rank(ulint idx, char c)
+    ulint rank(ulint idx, uchar c)
     {
         return symbols.rank(idx, c);
     }
 
-    ulint select(ulint idx, char c)
+    ulint select(ulint idx, uchar c)
     {
         return symbols.select(idx, c);
     }
@@ -58,7 +58,7 @@ public:
         return symbols.inverse_select(idx);
     }
 
-    const char& operator[](const ulint idx) const {
+    const uchar& operator[](const ulint idx) const {
         return symbols[idx];
     }
 
@@ -75,7 +75,7 @@ public:
         sdsl::structure_tree_node *child = sdsl::structure_tree::add_child(v, name, sdsl::util::class_name(*this));
         size_t written_bytes = 0;
 
-        symbols.serialize(out, v, "symbols");
+        written_bytes += symbols.serialize(out, v, "symbols");
 
         return written_bytes;
     }

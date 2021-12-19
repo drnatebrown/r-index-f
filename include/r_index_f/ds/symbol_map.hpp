@@ -40,7 +40,7 @@ public:
         access = std::vector<T>(ALPHABET_SIZE);
     }
 
-    symbol_map(std::unordered_map<char, T> map) {
+    symbol_map(std::unordered_map<uchar, T> map) {
         map_contains = bit_vector(ALPHABET_SIZE, false);
         access = std::vector<T>(ALPHABET_SIZE);
 
@@ -51,12 +51,12 @@ public:
         }
     }
 
-    bool contains(char c) const
+    bool contains(uchar c) const
     {
         return map_contains[c];
     }
 
-    bool insert(std::pair<char, T> kv)
+    bool insert(std::pair<uchar, T> kv)
     {
         if (!contains(kv.first)) {
             map_contains[kv.first] = true;
@@ -69,7 +69,7 @@ public:
         }
     }
 
-    T at(const char key)
+    T at(const uchar key)
     {
         if (!contains(key))
         {
@@ -79,7 +79,7 @@ public:
         return access[key];
     }
 
-    const T& operator[](const char key ) const {
+    const T& operator[](const uchar key ) const {
         return access[key];
     }
 
