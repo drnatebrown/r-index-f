@@ -57,6 +57,7 @@ public:
             bit_diff.push_back(true);
         }
 
+        base = b;
         diff_bv = bool_to_bit_vec<bv_t>(bit_diff);
         diff_select = bv_select_1(&diff_bv);
     }

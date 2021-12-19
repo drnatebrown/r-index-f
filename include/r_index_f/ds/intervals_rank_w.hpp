@@ -57,7 +57,7 @@ public:
             if (!block_c_map.count(character)) {
                 block_c_map[character] = interval;
                 last_c_map[character] = interval;
-                diff[character] = vector<ulint>();
+                diff[character] = std::vector<ulint>();
             }
 
             diff[character].push_back(interval - last_c_map[character]);

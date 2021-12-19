@@ -58,8 +58,8 @@ public:
         return symbols.inverse_select(idx);
     }
 
-    const uchar& operator[](const ulint idx) const {
-        return symbols[idx];
+    uchar operator[](size_t i) const {
+        return symbols[i];
     }
 
     ulint size()
