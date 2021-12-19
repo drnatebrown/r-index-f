@@ -1,4 +1,4 @@
-/* idx_bit_vector.hpp - Sampling idx using bit vector approach
+/* heads_wt_w - Wrapper to store the heads in a wavelet tree
     Copyright (C) 2021 Nathaniel Brown
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -12,47 +12,59 @@
     along with this program.  If not, see http://www.gnu.org/licenses/ .
 */
 /*!
-   \file idx_bit_vector.hpp
-   \brief idx_bit_vector.hpp template class wrapper used to access idx sampling using bit vector approach
+   \file heads_wt_w.hpp
+   \brief heads_wt_w Wrapper to store the heads in a wavelet tree
    \author Nathaniel Brown
-   \date 16/12/2021
+   \date 18/12/2021
 */
 
-#ifndef _IDX_BV_HH
-#define _IDX_BV_HH
+#ifndef _HEADS_WT_W_HH
+#define _HEADS_WT_W_HH
 
 #include <common.hpp>
-#include <sdsl/rmq_support.hpp>
-#include <sdsl/sd_vector.hpp>
+
+#include <sdsl/wavelet_trees.hpp>
+#include <sdsl/int_vector.hpp>
 #include <sdsl/structure_tree.hpp>
 #include <sdsl/util.hpp>
 
-template < class bit_vec = sd_vector<> >
-class idx_bit_vector
+using namespace sdsl;
+
+template< class wt_t = wt_huff<bit_vector> >
+class heads_wt_w
 {
 private:
-    typedef typename bit_vec::rank_1_type idx_rank;
-    typedef typename bit_vec::select_1_type idx_select;
-
-    bit_vec samples;
-    idx_rank pred;
-    idx_select run_sample;
+wt_t symbols;
 
 public:
+    heads_wt_w() {}
 
-    idx_bit_vector() {}
-
-    idx_bit_vector(vector<bool> vec) {
-        samples = bool_to_bit_vec<bit_vec>(vec);
+    heads_wt_w(std::vector<uchar> chars) {
+        construct_im(symbols, std::string(chars.begin(), chars.end()).c_str(), 1);
     }
 
-    ulint sample(ulint rank)
+    ulint rank(ulint idx, uchar c)
     {
-        return run_sample(rank + 1);
+        return symbols.rank(idx, c);
     }
 
-    ulint predecessor(ulint idx) {
-        return pred(idx + 1);
+    ulint select(ulint idx, uchar c)
+    {
+        return symbols.select(idx, c);
+    }
+
+    std::pair<ulint, ulint> inverse_select(ulint idx)
+    {
+        return symbols.inverse_select(idx);
+    }
+
+    uchar operator[](size_t i) const {
+        return symbols[i];
+    }
+
+    ulint size()
+    {
+        return symbols.size();
     }
 
     /* serialize the structure to the ostream
@@ -63,7 +75,7 @@ public:
         sdsl::structure_tree_node *child = sdsl::structure_tree::add_child(v, name, sdsl::util::class_name(*this));
         size_t written_bytes = 0;
 
-        written_bytes += samples.serialize(out, v, "idx_bit_vec");
+        written_bytes += symbols.serialize(out, v, "symbols");
 
         return written_bytes;
     }
@@ -73,10 +85,8 @@ public:
     */
     void load(std::istream &in)
     {
-        samples.load(in);
-        pred = idx_rank(&samples);
-        run_sample = idx_select(&samples);
+        symbols.load(in);
     }
 };
 
-#endif /* end of include guard: _IDX_BV_HH */
+#endif /* end of include guard: _HEADS_WT_W_HH */

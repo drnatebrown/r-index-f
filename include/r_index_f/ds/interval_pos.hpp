@@ -15,7 +15,6 @@
    \file interval_pos.hpp
    \brief interval_pos.hpp Pair describing run/offset access of r-index-f
    \author Nathaniel Brown
-   \author Massimiliano Rossi
    \date 11/19/2021
 */
 

@@ -29,12 +29,6 @@
 #include <ds/interval_pos.hpp>
 #include <ds/idx_bit_vector.hpp>
 
-#include <sdsl/rmq_support.hpp>
-#include <sdsl/int_vector.hpp>
-#include <sdsl/sd_vector.hpp>
-#include <sdsl/wavelet_trees.hpp>
-#include <sdsl/dac_vector.hpp>
-
 using namespace sdsl;
 
 template  < ulint block_size = 1048576, // 2^20
@@ -83,21 +77,18 @@ public:
         ulint B_len = (r / block_size) + ((r % block_size) != 0);
         blocks = vector<block>(B_len);
 
-        vector<char> block_chars = vector<char>();
-        vector<ulint> block_intervals = vector<ulint>();
-        vector<ulint> block_lens = vector<ulint>();
-        vector<ulint> block_offsets = vector<ulint>();
-
-        // Concerned with Interval sectioned by character (break into base pointer and difference from prior interval)
-        std::unordered_map<char, ulint> last_c_pos = std::unordered_map<char, ulint>();
-        std::vector<ulint> block_c_map = std::vector<ulint>(ALPHABET_SIZE, 0);
-        std::vector<vector<bool>> bit_diff = std::vector<vector<bool>>(ALPHABET_SIZE, vector<bool>());
+        std::vector<uchar> block_chars = std::vector<uchar>();
+        std::vector<ulint> block_intervals = std::vector<ulint>();
+        std::vector<ulint> block_lens = std::vector<ulint>();
+        std::vector<ulint> block_offsets = std::vector<ulint>();
 
         // Where characters prior to block mapped to, in case we can't find that character when we LF
-        std::vector<bool> char_prior = std::vector<bool>(ALPHABET_SIZE, false);
-        std::vector<interval_pos> prior_LF = std::vector<interval_pos>(ALPHABET_SIZE, interval_pos());
+        std::unordered_map<uchar, interval_pos> prior_LF = std::unordered_map<uchar, interval_pos>();
 
         std::vector<bool> sampled_runs = std::vector<bool>();
+
+        // Where the last character's position was wrt. current block
+        std::unordered_map<uchar, ulint> last_c_pos = std::unordered_map<uchar, ulint>();
 
         ulint b = 0;
         ulint i = 0;
@@ -117,10 +108,7 @@ public:
             }
 
             if (!last_c_pos.count(curr.character)) {
-                last_c_pos.insert(std::pair<char, ulint>(curr.character, block_chars.size() - 1));
-
-                block_c_map[curr.character] = curr.interval;
-                bit_diff[curr.character] = vector<bool>();
+                last_c_pos[curr.character] = block_chars.size() - 1;
 
                 // For all blocks prior without set values to find the next c's mapping, loop back and set
                 if (b > 0)
@@ -136,14 +124,6 @@ public:
                     }
                 }
             }
-
-            ulint diff = curr.interval - block_intervals[last_c_pos[curr.character]];
-            while (diff > 0) {
-                bit_diff[curr.character].push_back(false);
-                --diff;
-            }
-            bit_diff[curr.character].push_back(true);
-
             last_c_pos[curr.character] = block_chars.size() - 1;
 
             ++i;
@@ -151,7 +131,7 @@ public:
             // End of block of intervals, update block table
             if (i % block_size == 0 || i >= r)
             {        
-                blocks[b] = block(block_chars, block_c_map, bit_diff, block_lens, block_offsets, char_prior, prior_LF);
+                blocks[b] = block(block_chars, block_intervals, block_lens, block_offsets, prior_LF);
 
                 for(auto const& [c, pos] : last_c_pos)
                 {
@@ -160,18 +140,15 @@ public:
                     // Perform LF step from the last seen character in this run (which is at offset equal to last character, one minus length)
                     auto[k, d] = LF_rows.LF(run, block_lens[pos] - 1);
 
-                    char_prior[c] = true;
                     prior_LF[c] = interval_pos(k, d);
                 }
 
-                block_chars = vector<char>();
-                block_intervals = vector<ulint>();
-                block_lens = vector<ulint>();
-                block_offsets = vector<ulint>();
+                block_chars = std::vector<uchar>();
+                block_intervals = std::vector<ulint>();
+                block_lens = std::vector<ulint>();
+                block_offsets = std::vector<ulint>();
 
-                last_c_pos = std::unordered_map<char, ulint>();
-                block_c_map = std::vector<ulint>(ALPHABET_SIZE, 0);
-                bit_diff = std::vector<vector<bool>>(ALPHABET_SIZE, std::vector<bool>());
+                last_c_pos = std::unordered_map<uchar, ulint>();
 
                 ++b;
             }
@@ -191,12 +168,12 @@ public:
         return get_block(pos.run);
     }
 
-    char get_char(ulint run) 
+    uchar get_char(ulint run) 
     {
-        return (char) get_block(run).get_char(row(run));
+        return (uchar) get_block(run).get_char(row(run));
     }
 
-    char get_char(interval_pos pos) 
+    uchar get_char(interval_pos pos) 
     {
         return get_char(pos.run);
     }
@@ -216,12 +193,12 @@ public:
         return reduced_pos(get_block(pos).LF(row(pos), pos.offset));
     }
 
-    interval_pos LF_prior(interval_pos pos, char c)
+    interval_pos LF_prior(interval_pos pos, uchar c)
     {
         return reduced_pos(get_block(pos).LF_prior(row(pos), pos.offset, c));
     }
 
-    interval_pos LF_next(interval_pos pos, char c)
+    interval_pos LF_next(interval_pos pos, uchar c)
     {
         return reduced_pos(get_block(pos).LF_next(row(pos), pos.offset, c));
     }
