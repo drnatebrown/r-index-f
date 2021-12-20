@@ -29,16 +29,21 @@
 #include <ds/symbol_map.hpp>
 #include <sdsl/dac_vector.hpp>
 
+#include <ds/heads_bv_w.hpp>
+#include <ds/ACGT_map.hpp>
+
 using namespace sdsl;
 
-template  < class heads_t = heads_wt_w<>,
+template  < class heads_t = heads_bv_w<>,
             class intervals_t = intervals_rank_w<>,
             class lengths_t = dac_vector<>,
             class offsets_t = dac_vector<>,
-            class char_map_t = symbol_map<interval_pos> >
+            template<class> class char_map_t = ACGT_map >
 class interval_block
 {
 private:
+    typedef char_map_t<interval_pos> pos_map;
+
     // Heads supporting rank/select/access for character c
     heads_t heads;
     // Intervals which return the mapping given a character c and its rank in block
@@ -49,8 +54,8 @@ private:
     offsets_t offsets;
 
     // Stores prior and next block LF mapping for a character (for block overruns)
-    char_map_t prior_block_LF;
-    char_map_t next_block_LF;
+    pos_map prior_block_LF;
+    pos_map next_block_LF;
 
     // For a row k with offset d, character c of rank c_rank, compute it's LF
     interval_pos LF(ulint k, ulint d, uchar c, ulint c_rank)
@@ -70,8 +75,8 @@ public:
         lengths = lengths_t(lens);
         offsets = offsets_t(offs);
 
-        prior_block_LF = char_map_t(prior_LF);
-        next_block_LF = char_map_t();
+        prior_block_LF = pos_map(prior_LF);
+        next_block_LF = pos_map();
     }
 
     // Return the character at row k

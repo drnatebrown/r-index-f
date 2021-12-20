@@ -29,14 +29,18 @@
 #include <sdsl/structure_tree.hpp>
 #include <sdsl/util.hpp>
 
+#include <ds/ACGT_map.hpp>
+
 using namespace sdsl;
 
 template< class interval_t = base_bv<>,
-          class char_map_t = symbol_map<interval_t> >
+          template<class> class char_map_t = ACGT_map >
 class intervals_rank_w
 {
 private:
-    char_map_t char_map;
+    typedef char_map_t<interval_t> interval_map;
+
+    interval_map char_map;
 
 public:
     intervals_rank_w() {}
