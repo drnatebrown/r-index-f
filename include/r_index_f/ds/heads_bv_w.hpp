@@ -69,6 +69,11 @@ private:
         }
     };
 
+    typedef char_map_t<rank_select_bv> bv_map;
+
+    bv_map bit_vecs;
+    ulint bv_size;
+
     uchar scan(ulint idx)
     {
         for (size_t i = 0; i < ALPHABET_SIZE; ++i)
@@ -84,11 +89,6 @@ private:
 
         return 0;
     }
-
-    typedef char_map_t<rank_select_bv> bv_map;
-
-    bv_map bit_vecs;
-    ulint bv_size;
 
 public:
     heads_bv_w() {}
@@ -131,19 +131,17 @@ public:
         return bit_vecs[c].select(idx);
     }
 
-    // NOT ADVISED - uses slow access query
     std::pair<ulint, uchar> inverse_select(ulint idx)
     {
         uchar c = scan(idx);
         ulint rank = 0;
         if (bit_vecs.contains(c))
         {
-            rank = bit_vecs[c].rank(idx);
+            rank = rank(idx, c);
         }
         return std::pair<ulint, uchar>(rank, c);
     }
 
-    // NOT ADVISED - implemented for completeness
     uchar operator[](size_t idx) {
         scan(idx);
     }
