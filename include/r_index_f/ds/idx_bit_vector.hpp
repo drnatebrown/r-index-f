@@ -44,6 +44,8 @@ public:
 
     idx_bit_vector(vector<bool> vec) {
         samples = bool_to_bit_vec<bit_vec>(vec);
+        pred = idx_rank(&samples);
+        run_sample = idx_select(&samples);
     }
 
     ulint sample(ulint rank)

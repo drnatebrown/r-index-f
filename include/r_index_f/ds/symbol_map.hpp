@@ -69,18 +69,19 @@ public:
         }
     }
 
-    T at(const uchar key)
+    T& at(const uchar c) const
     {
-        if (!contains(key))
+        if (!contains(c))
         {
-            throw std::out_of_range("Symbol" + std::to_string(key) + "not in map");
+            throw std::out_of_range("Symbol" + std::to_string(c) + "not in map");
         }
 
-        return access[key];
+        return access[c];
     }
 
-    const T& operator[](const uchar key ) const {
-        return access[key];
+    T& operator[](const uchar c) const
+    {
+        return access[c];
     }
 
     /* serialize the structure to the ostream
