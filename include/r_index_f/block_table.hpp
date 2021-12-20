@@ -32,7 +32,7 @@
 using namespace sdsl;
 
 template  < ulint block_size = 1048576, // 2^20
-            ulint idx_rate = 2,
+            ulint idx_rate = 8,
             class idx_vec = idx_bit_vector<>,
             class block = interval_block<>>
 class block_table

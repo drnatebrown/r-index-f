@@ -23,6 +23,7 @@
 
 #include <common.hpp>
 #include <ds/base_bv.hpp>
+#include <ds/base_sample.hpp>
 #include <ds/symbol_map.hpp>
 #include <sdsl/rmq_support.hpp>
 #include <sdsl/int_vector.hpp>
@@ -33,7 +34,7 @@
 
 using namespace sdsl;
 
-template< class interval_t = base_bv<>,
+template< class interval_t = base_sample<>,
           template<class> class char_map_t = ACGT_map >
 class intervals_rank_w
 {
