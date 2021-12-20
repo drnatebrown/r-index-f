@@ -139,7 +139,7 @@ public:
         {
             r = rank(idx, c);
         }
-        return std::pair<ulint, uchar>(rank, c);
+        return std::pair<ulint, uchar>(r, c);
     }
 
     uchar operator[](size_t idx) {
