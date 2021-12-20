@@ -134,10 +134,10 @@ public:
     std::pair<ulint, uchar> inverse_select(ulint idx)
     {
         uchar c = scan(idx);
-        ulint rank = 0;
+        ulint r = 0;
         if (bit_vecs.contains(c))
         {
-            rank = rank(idx, c);
+            r = rank(idx, c);
         }
         return std::pair<ulint, uchar>(rank, c);
     }
