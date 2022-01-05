@@ -113,6 +113,8 @@ public:
                 }
             }
         }
+
+        mem_stats();
     }
 
     const LF_row get(size_t i)
@@ -152,6 +154,14 @@ public:
     std::string get_file_extension() const
     {
         return ".LF_table";
+    }
+
+    void mem_stats()
+    {
+        sdsl::nullstream ns;
+
+        verbose("Memory consumption (bytes).");
+        verbose("              LF table: ", serialize(ns));
     }
 
     /* serialize to the ostream

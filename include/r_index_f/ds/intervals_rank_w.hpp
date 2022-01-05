@@ -34,7 +34,7 @@
 
 using namespace sdsl;
 
-template< class interval_t = base_sample<>,
+template< class interval_t = base_bv<>,
           template<class> class char_map_t = ACGT_map >
 class intervals_rank_w
 {
