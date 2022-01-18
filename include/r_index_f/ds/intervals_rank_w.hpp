@@ -23,7 +23,6 @@
 
 #include <common.hpp>
 #include <ds/base_bv.hpp>
-#include <ds/base_sample.hpp>
 #include <ds/symbol_map.hpp>
 #include <sdsl/rmq_support.hpp>
 #include <sdsl/int_vector.hpp>
