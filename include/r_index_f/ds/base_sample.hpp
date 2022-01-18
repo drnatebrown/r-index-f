@@ -41,11 +41,11 @@ private:
     ulint get_diff(ulint rank) const
     {
         ulint sample_rank = rank / sample_rate;
-        ulint sample_pos = sample_rank*sample_rate;
-        ulint diff = sampled_diffs[rank / sample_rate];
-        while (sample_pos < rank)
+        ulint sample_next = sample_rank*sample_rate + 1;
+        ulint diff = sampled_diffs[sample_rank];
+        while (sample_next <= rank)
         {
-            diff += partial_diffs[sample_pos++];
+            diff += partial_diffs[sample_next++];
         }
 
         return diff;

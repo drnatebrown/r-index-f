@@ -30,7 +30,7 @@
 
 using namespace sdsl;
 
-template< class wt_t = wt_huff<bit_vector> >
+template< class wt_t = wt_huff<> >
 class heads_wt_w
 {
 private:
