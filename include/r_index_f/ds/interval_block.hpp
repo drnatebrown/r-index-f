@@ -36,8 +36,8 @@ using namespace sdsl;
 
 template  < class heads_t = heads_bv_w<>,
             class intervals_t = intervals_rank_w<>,
-            class lengths_t = dac_vector<>,
-            class offsets_t = dac_vector<>,
+            class lengths_t = dac_vector_dp<>,
+            class offsets_t = dac_vector_dp<>,
             template<class> class char_map_t = ACGT_map >
 class interval_block
 {
