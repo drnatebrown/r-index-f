@@ -28,7 +28,6 @@
 #include <ds/intervals_rank_w.hpp>
 #include <ds/symbol_map.hpp>
 #include <sdsl/dac_vector.hpp>
-#include <ds/idx_bit_vector.hpp>
 
 #include <ds/heads_bv_w.hpp>
 #include <ds/ACGT_map.hpp>
@@ -37,10 +36,8 @@ using namespace sdsl;
 
 template  < class heads_t = heads_bv_w<>,
             class intervals_t = intervals_rank_w<>,
-            class lengths_t = dac_vector_dp<>,
-            class offsets_t = dac_vector_dp<>,
-            ulint sample_rate = 8,
-            class idx_vec = idx_bit_vector<>,
+            class lengths_t = dac_vector<>,
+            class offsets_t = dac_vector<>,
             template<class> class char_map_t = ACGT_map >
 class interval_block
 {
@@ -55,11 +52,6 @@ private:
     lengths_t lengths;
     // Offsets supporting access
     offsets_t offsets;
-
-    // idx of start of block
-    ulint base_idx;
-    // stores sampled idx in block
-    idx_vec idx_samples;
 
     // Stores prior and next block LF mapping for a character (for block overruns)
     pos_map prior_block_LF;
@@ -77,24 +69,11 @@ private:
 public:
     interval_block() {}
 
-    interval_block(std::vector<uchar> chars, std::vector<ulint> ints, std::vector<ulint> lens, std::vector<ulint> offs, ulint idx, std::unordered_map<uchar, interval_pos> prior_LF) {
+    interval_block(std::vector<uchar> chars, std::vector<ulint> ints, std::vector<ulint> lens, std::vector<ulint> offs, std::unordered_map<uchar, interval_pos> prior_LF) {
         heads = heads_t(chars);
         intervals = intervals_t(chars, ints);
         lengths = lengths_t(lens);
         offsets = offsets_t(offs);
-
-        // True denotes idx is sampled
-        std::vector<bool> sampled_runs = std::vector<bool>();
-        for(size_t i = 0; i < lens.size(); ++i)
-        {
-            sampled_runs.push_back(i % sample_rate == 0);
-            for (size_t j = 1; j < lens[i]; ++j)
-            {
-                sampled_runs.push_back(false);
-            }
-        }
-        base_idx = idx;
-        idx_samples = idx_vec(sampled_runs);
 
         prior_block_LF = pos_map(prior_LF);
         next_block_LF = pos_map();
@@ -216,33 +195,6 @@ public:
 	    return interval_pos(q, d);
     }
 
-    // For position k in block with offset d, return absolute idx wrt. BWT
-    ulint get_idx(ulint k, ulint d)
-    {
-        ulint sample_rank = k / sample_rate;
-        ulint sample_run = sample_rank*sample_rate;
-        ulint idx = idx_samples.sample(sample_rank);
-        while (sample_run < k)
-        {
-            idx += get_length(sample_run++);
-        }
-        idx += d;
-
-        return base_idx + idx;
-    }
-
-    // For idx belonging to this block and this blocks first run, return its run and offset
-    interval_pos get_interval(ulint idx, ulint block_run)
-    {
-        // adjust idx to be truncated by the block's base idx
-        idx -= base_idx;
-
-        // Get first sampled run idx equal to or greater than idx
-        ulint base = idx_samples.predecessor(idx);
-        // Offset is difference between predecessor and true value, reduce to find true position
-        return reduce(interval_pos(block_run + base*sample_rate, idx-base));
-    }
-
     /* serialize the interval block to the ostream
     * \param out     the ostream
     */
@@ -256,10 +208,6 @@ public:
         written_bytes += intervals.serialize(out,v,"Intervals");
         written_bytes += lengths.serialize(out,v,"Lengths");
         written_bytes += offsets.serialize(out,v,"Offsets");
-        
-        out.write((char *)&base_idx, sizeof(base_idx));
-        written_bytes += sizeof(base_idx);
-        written_bytes += idx_samples.serialize(out, v, "idx_samples");
 
         written_bytes += prior_block_LF.serialize(out,v,"Prior_Block_LF");
         written_bytes += next_block_LF.serialize(out,v,"Next_Block_LF");
@@ -277,9 +225,6 @@ public:
         intervals.load(in);
         lengths.load(in);
         offsets.load(in);
-
-        in.read((char *)&base_idx, sizeof(base_idx));
-        idx_samples.load(in);
 
         prior_block_LF.load(in);
         next_block_LF.load(in);

@@ -32,6 +32,7 @@
 using namespace sdsl;
 
 template  < ulint block_size = 1048576, // 2^20
+            ulint idx_rate = 8,
             class idx_vec = idx_bit_vector<>,
             class block = interval_block<>>
 class block_table
@@ -39,7 +40,7 @@ class block_table
 private:
 
     vector<block> blocks;
-    idx_vec block_idx;
+    idx_vec idx_samples;
 
     ulint r;
     ulint n;
@@ -84,12 +85,7 @@ public:
         // Where characters prior to block mapped to, in case we can't find that character when we LF
         std::unordered_map<uchar, interval_pos> prior_LF = std::unordered_map<uchar, interval_pos>();
 
-        // True marks where blocks start in terms of absolute idx
-        std::vector<bool> block_base_idx = std::vector<bool>();
-        // idx of current block
-        ulint curr_idx = 0;
-        // absolute idx counter
-        ulint absolute_idx = 0;
+        std::vector<bool> sampled_runs = std::vector<bool>();
 
         // Where the last character's position was wrt. current block
         std::unordered_map<uchar, ulint> last_c_pos = std::unordered_map<uchar, ulint>();
@@ -105,12 +101,11 @@ public:
             block_lens.push_back(curr.length);
             block_offsets.push_back(curr.offset);
 
-            block_base_idx.push_back(i % block_size == 0);
+            sampled_runs.push_back(i % idx_rate == 0);
             for (size_t j = 1; j < curr.length; j++)
             {
-                block_base_idx.push_back(false);
+                sampled_runs.push_back(false);
             }
-            absolute_idx += curr.length;
 
             if (!last_c_pos.count(curr.character)) {
                 last_c_pos[curr.character] = block_chars.size() - 1;
@@ -136,7 +131,7 @@ public:
             // End of block of intervals, update block table
             if (i % block_size == 0 || i >= r)
             {        
-                blocks[b] = block(block_chars, block_intervals, block_lens, block_offsets, curr_idx, prior_LF);
+                blocks[b] = block(block_chars, block_intervals, block_lens, block_offsets, prior_LF);
 
                 for(auto const& [c, pos] : last_c_pos)
                 {
@@ -153,15 +148,13 @@ public:
                 block_lens = std::vector<ulint>();
                 block_offsets = std::vector<ulint>();
 
-                curr_idx = absolute_idx;
-
                 last_c_pos = std::unordered_map<uchar, ulint>();
 
                 ++b;
             }
         }
 
-        block_idx = idx_vec(block_base_idx);
+        idx_samples = idx_vec(sampled_runs);
     }
 
     block& get_block(ulint run)
@@ -239,19 +232,26 @@ public:
     // For a general interval position, return the idx wrt. the BWT
     ulint interval_to_idx(interval_pos pos)
     {
-        // ensure pos is reduced to obtain correct value
-        pos = reduced_pos(pos);
-        return get_block(pos).get_idx(row(pos), pos.offset);
+        ulint sample_rank = pos.run / idx_rate;
+        ulint sample_run = sample_rank*idx_rate;
+        ulint idx = idx_samples.sample(sample_rank);
+        while (sample_run < pos.run)
+        {
+            idx += get_length(sample_run++);
+        }
+        idx += pos.offset;
+
+        return idx;
     }
 
     // For a general index on the BWT, return the corresponding interval position
     interval_pos idx_to_interval(ulint idx)
     {
         assert(idx < n);
-        // Get first block with idx equal to or greater than its base idx
-        ulint b = block_idx.predecessor(idx);
-        // Get the interval from this block, passing how many which run its first position corresponds to
-        return get_block(b).get_interval(idx, b*block_size);
+        // Get first sampled run idx equal to or greater than idx
+        ulint base = idx_samples.predecessor(idx);
+        // Offset is difference between predecessor and true value, reduce to find true position
+        return reduced_pos(interval_pos(base*idx_rate, idx-base));
     }
 
     /* serialize the interval block to the ostream
@@ -277,7 +277,7 @@ public:
            written_bytes += blocks[i].serialize(out,v,"block_table_" + std::to_string(i));
         }
 
-        written_bytes += block_idx.serialize(out, v, "idx_samples");
+        written_bytes += idx_samples.serialize(out, v, "idx_samples");
 
         return written_bytes;
     }
@@ -299,7 +299,7 @@ public:
             blocks[i].load(in);
         }
 
-        block_idx.load(in);
+        idx_samples.load(in);
     }
 };
 
