@@ -31,66 +31,88 @@ using namespace std;
 
 class LF_table
 {
-private:
-    ulint n; // Length of BWT
-    ulint r; // Runs of BWT
-
-    vector<char> chars;
-    vector<ulint> intervals;
-    vector<ulint> lens;
-    vector<ulint> offsets;
-
 public:
     // Row of the LF table
-    struct LF_row
+    typedef struct LF_row
     {
         char character;
-        ulint interval;
         ulint length;
+        ulint interval;
         ulint offset;
+
+        size_t serialize(std::ostream &out, sdsl::structure_tree_node *v = nullptr, std::string name ="")
+        {
+            sdsl::structure_tree_node *child = sdsl::structure_tree::add_child(v, name, sdsl::util::class_name(*this));
+            size_t written_bytes = 0;
+
+            out.write((char *)&character, sizeof(character));
+            written_bytes += sizeof(character);
+
+            out.write((char *)&interval, sizeof(interval));
+            written_bytes += sizeof(interval);
+
+            out.write((char *)&length, sizeof(length));
+            written_bytes += sizeof(length);
+
+            out.write((char *)&offset, sizeof(offset));
+            written_bytes += sizeof(offset);
+
+            return written_bytes;
+        }
+
+        void load(std::istream &in)
+        {
+            in.read((char *)&character, sizeof(character));
+            in.read((char *)&interval, sizeof(interval));
+            in.read((char *)&length, sizeof(length));
+            in.read((char *)&offset, sizeof(offset));
+        }
     };
 
     LF_table() {}
 
     // TODO: Add builder for BWT (not heads/lengths)
-    LF_table(std::ifstream &heads, std::ifstream &lengths)
+    LF_table(std::ifstream &heads, std::ifstream &lengths, ulint max_run = 0)
     {
         heads.clear();
         heads.seekg(0);
         lengths.clear();
         lengths.seekg(0);
         
+        LF_runs = vector<LF_row>();
         vector<vector<size_t>> L_block_indices = vector<vector<size_t>>(ALPHABET_SIZE);
-        chars = vector<char>(); 
-        lens = vector<ulint>();
         
         char c;
         ulint i = 0;
+        r = 0;
         n = 0;
         while ((c = heads.get()) != EOF)
         {
             size_t length = 0;
             lengths.read((char *)&length, 5);
-            if (c > TERMINATOR)
-            {
-                chars.push_back(c);
-                lens.push_back(length);
-                L_block_indices[c].push_back(i);
+            if (c <= TERMINATOR) c = TERMINATOR;
+
+            if (max_run > 0 && length > max_run) {
+                ulint max_splits = length/max_run;
+                for (size_t split = 0; split < max_splits; ++split)
+                {
+                    LF_runs.push_back({c, max_run, 0, 0});
+                    L_block_indices[c].push_back(i++);
+                }
+
+                if (length % max_run != 0)
+                {
+                    LF_runs.push_back({c, length % max_run, 0, 0});
+                    L_block_indices[c].push_back(i++);
+                }
             }
-            else
-            {
-                chars.push_back(TERMINATOR);
-                lens.push_back(length);
-                L_block_indices[TERMINATOR].push_back(i);
-            }
-            ++i;
+            else {
+                LF_runs.push_back({c, length, 0, 0});
+                L_block_indices[c].push_back(i++);
+            }    
             n+=length;
         }
-        
-        r = chars.size();
-
-        intervals = vector<ulint>(r);
-        offsets = vector<ulint>(r);
+        r = LF_runs.size();
 
         ulint curr_L_num = 0;
         ulint L_seen = 0;
@@ -101,14 +123,14 @@ public:
             {
                 ulint pos = L_block_indices[i][j];
 
-                intervals[pos] = curr_L_num;
-                offsets[pos] = F_seen - L_seen;
+                LF_runs[pos].interval = curr_L_num;
+                LF_runs[pos].offset = F_seen - L_seen;
 
-                F_seen += lens[pos];
+                F_seen += LF_runs[pos].length;
             
-                while (curr_L_num < r && F_seen >= L_seen + lens[curr_L_num]) 
+                while (curr_L_num < r && F_seen >= L_seen + LF_runs[curr_L_num].length) 
                 {
-                    L_seen += lens[curr_L_num];
+                    L_seen += LF_runs[curr_L_num].length;
                     ++curr_L_num;
                 }
             }
@@ -119,8 +141,8 @@ public:
 
     const LF_row get(size_t i)
     {
-        assert(i < r);
-        return LF_row{chars[i], intervals[i], lens[i], offsets[i]};
+        assert(i < LF_runs.size());
+        return LF_runs[i];
     }
 
     ulint size()
@@ -140,12 +162,12 @@ public:
      */
     std::pair<ulint, ulint> LF(ulint run, ulint offset)
     {
-        ulint next_interval = intervals[run];
-	    ulint next_offset = offsets[run] + offset;
+        ulint next_interval = LF_runs[run].interval;
+	    ulint next_offset = LF_runs[run].offset + offset;
 
-	    while (next_offset >= lens[next_interval]) 
+	    while (next_offset >= LF_runs[next_interval].length) 
         {
-            next_offset -= lens[next_interval++];
+            next_offset -= LF_runs[next_interval++].length;
         }
 
 	    return std::make_pair(next_interval, next_offset);
@@ -178,23 +200,13 @@ public:
         out.write((char *)&r, sizeof(r));
         written_bytes += sizeof(r);
 
-        size_t size = chars.size();
+        size_t size = LF_runs.size();
         out.write((char *)&size, sizeof(size));
         written_bytes += sizeof(size);
 
         for(size_t i = 0; i < size; ++i)
         {
-            out.write((char *)&chars[i], sizeof(chars[i]));
-            written_bytes += sizeof(chars[i]);
-
-            out.write((char *)&intervals[i], sizeof(intervals[i]));
-            written_bytes += sizeof(intervals[i]);
-
-            out.write((char *)&lens[i], sizeof(lens[i]));
-            written_bytes += sizeof(lens[i]);
-
-            out.write((char *)&offsets[i], sizeof(offsets[i]));
-            written_bytes += sizeof(offsets[i]);
+            written_bytes += LF_runs[i].serialize(out, v, "LF_run_" + std::to_string(i));
         }
 
         return written_bytes;
@@ -211,18 +223,17 @@ public:
         in.read((char *)&r, sizeof(r));
 
         in.read((char *)&size, sizeof(size));
-        chars = std::vector<char>(size);
-        intervals = std::vector<ulint>(size);
-        lens = std::vector<ulint>(size);
-        offsets = std::vector<ulint>(size);
+        LF_runs = std::vector<LF_row>(size);
         for(size_t i = 0; i < size; ++i)
         {
-            in.read((char *)&chars[i], sizeof(chars[i]));
-            in.read((char *)&intervals[i], sizeof(intervals[i]));
-            in.read((char *)&lens[i], sizeof(lens[i]));
-            in.read((char *)&offsets[i], sizeof(offsets[i]));
+            LF_runs[i].load(in);
         }
     }
+private:
+    ulint n; // Length of BWT
+    ulint r; // Runs of BWT
+
+    vector<LF_row> LF_runs;
 };
 
 #endif /* end of include guard: _LF_TABLE_HH */
