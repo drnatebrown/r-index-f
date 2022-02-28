@@ -60,9 +60,9 @@ make
 * Massimiliano Rossi
 
 # Citation
-Please cite the original paper by Nishimoto and Tabei [1] if you refer only to their data structure.
+Please cite the original paper by Nishimoto and Tabei [1] if you refer only to their data structure
 
-If you use the implementation in an academic setting, please cite RLBWT Tricks [2].
+If you use the implementation in an academic setting, please cite both the former as well as RLBWT Tricks [2].
  
 # References
 
