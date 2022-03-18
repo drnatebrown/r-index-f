@@ -1,4 +1,4 @@
-/* rif_tests Performs benchmarks on the constructed R-Index-F
+/* rif_tests Performs benchmarks on the constructed R-Index-F --- must serialize both r-index-f and LF_table
     Copyright (C) 2021 Nathaniel Brown
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
