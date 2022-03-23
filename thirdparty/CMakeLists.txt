@@ -49,6 +49,19 @@ if(NOT gsacak_POPULATED)
     target_compile_options(gsacak64 PUBLIC -DM64)
 endif()
 
+## Add pfp-thresholds
+FetchContent_Declare(
+  pfp_thresholds
+  GIT_REPOSITORY https://github.com/maxrossi91/pfp-thresholds.git
+  GIT_TAG develop
+  )
+  
+FetchContent_GetProperties(pfp_thresholds)
+if(NOT pfp_thresholds_POPULATED)
+  FetchContent_Populate(pfp_thresholds)
+  add_subdirectory(${pfp_thresholds_SOURCE_DIR} ${pfp_thresholds_BINARY_DIR})
+  
+endif()
 
 ## Google benchmark
 FetchContent_Declare(

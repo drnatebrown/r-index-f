@@ -99,6 +99,27 @@ public:
         return B_table.size();
     }
 
+    size_t count(const std::string &pattern){
+        range_t range = full_range();
+        ulint m = pattern.size();
+        for (ulint i=0; i < m && range.second >= range.first; ++i){
+            range = LF(range, pattern[m - i - 1]);
+        }
+        return interval_to_idx(range.second) - interval_to_idx(range.first) + 1;  
+    }
+
+    // void invert() {
+    //     std::string outfile = args.filename + ".inverted";
+    //     std::ofstream out(outfile);
+
+    //     interval_pos i = {0,0};
+    //     char c;
+    //     while((c = bwt.get_char(i)) > TERMINATOR)
+    //         out << c;
+    //         i = bwt.LF(i), ++steps;
+    //     out.close();
+    // }
+
     interval_pos LF(interval_pos pos)
     {
         return B_table.LF(pos);

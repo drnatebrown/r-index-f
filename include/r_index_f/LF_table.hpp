@@ -168,6 +168,23 @@ public:
         return r;
     }
 
+    void invert(std::string outfile) 
+    {
+        std::ofstream out(outfile);
+
+        ulint interval = 0;
+        ulint offset = 0;
+
+        char c;
+        while((c = get_char(interval)) > TERMINATOR) 
+        {
+            out << c;
+            std::pair<ulint, ulint> pos = LF(interval, offset);
+            interval = pos.first;
+            offset = pos.second;
+        }
+    }
+
     /*
      * \param Run position (RLE intervals)
      * \param Current character offset in block
@@ -193,6 +210,11 @@ public:
         }
 
 	    return std::make_pair(next_interval, next_offset);
+    }
+
+    uchar get_char(ulint i)
+    {
+        return get(i).character;
     }
 
     std::string get_file_extension() const

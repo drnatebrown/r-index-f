@@ -65,3 +65,5 @@ enable_testing()
 # Add the subdirectory containing the tests (which imports also their target).
 add_subdirectory(include)
 add_subdirectory(test/src)
+
+configure_file(${PROJECT_SOURCE_DIR}/pipeline/rif ${PROJECT_BINARY_DIR}/rif)

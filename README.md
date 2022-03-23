@@ -13,11 +13,11 @@ R-Index-F Library for String Indexing
 
 Implemented and adapted from original work by Takaaki Nishimoto and Yasuo Tabei [1].
 
-This library uses a simplified approach which follows the theory of the original paper. We store intervals consisting of full BWT-runs rather than sub-runs, representing a maximal interval mapping, and a custom block compression. Joint work with Travis Gagie and Massimiliano Rossi.
+This library uses a simplified approach which follows the theory of the original paper. We store intervals consisting of full BWT-runs rather than sub-runs, representing a maximal interval mapping, and a custom block compression [2]. Joint work with Travis Gagie and Massimiliano Rossi. To reproduce experiments shown in RLBWT Tricks [2], accession codes for SARS-CoV-2 genomes from the [Covid-19 Data Portal](https://www.covid19dataportal.org/) are listed in the example data.
 
 Efficiently performs decompression and count queries using interval mapping of BWT-runs.
 
-*Current Version:* 0.1.0
+*Current Version:* 0.2.0
 
 # Example
 ### Download and Compile
@@ -31,18 +31,27 @@ cmake ..
 make
 ```
 
-### Example
-
+### Build
+Builds the data structure on the example fasta file given, creating [filename].rif as output. The -f flag specifies we read in a fasta format. Other build flags affect the BWT build and are described in [Big-BWT](https://github.com/alshai/Big-BWT.git).
 ```console
-[build script in progress]
+python3 rif ../data/example_fasta/example.fasta -f
 ```
+
+### Queries
+The data structure should be imported and loaded as decribed in r-index-f.hpp once built, and supports LF computation needed to perform count queries.
+```console
+[test query scripts in progress]
+```
+
 
 # External Dependencies
 
 * [Big-BWT](https://github.com/alshai/Big-BWT.git)
     * [gSACA-K](https://github.com/felipelouza/gsa-is.git)
     * [malloc_count](https://github.com/bingmann/malloc_count)
+* [pfp_thresholds](https://github.com/maxrossi91/pfp-thresholds)
 * [sdsl-lite](https://github.com/simongog/sdsl-lite)
+    * [divufsort](https://github.com/simongog/libdivsufsort) 
 * [Google Benchmark](https://github.com/google/benchmark.git)
     * [Google Test](https://github.com/google/googletest)
 
@@ -50,7 +59,7 @@ make
 
 ### Implementation:
 
-* [Nathaniel Brown](https://github.com/oma219)
+* [Nathaniel Brown](https://github.com/drnatebrown)
 * [Massimiliano Rossi](https://github.com/maxrossi91)
 
 ### Theory
@@ -58,6 +67,12 @@ make
 * Travis Gagie
 * Massimiliano Rossi
 
+# Citation
+Please cite the original paper by Nishimoto and Tabei [1] if you refer only to their data structure
+
+If you use the implementation in an academic setting, please cite both the former as well as RLBWT Tricks [2].
+ 
 # References
 
-[1] Nishimoto, T., & Tabei, Y. (2020). Optimal-Time Queries on BWT-runs Compressed Indexes. arXiv preprint arXiv:2006.05104.
+[1] Nishimoto, T., & Tabei, Y. (2020). Optimal-Time Queries on BWT-runs Compressed Indexes. arXiv preprint arXiv:2006.05104.  
+[2] Brown, N.K., Gagie, T., & Rossi, M. (2022). RLBWT Tricks. arXiv preprint arXiv:2112.04271.

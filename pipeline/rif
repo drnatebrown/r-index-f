@@ -1,0 +1,337 @@
+#!/usr/bin/env python3
+
+# Edited from bigbwt/pfpthresholds script file
+
+import sys, time, argparse, subprocess, os.path, threading
+
+Description = """
+    ____            ___           _                     _____ 
+    |  _ \          |_ _|_ __   __| | _____  __         |  ___|
+    | |_) |  _____   | || '_ \ / _` |/ _ \ \/ /  _____  | |_   
+    |  _ <  |_____|  | || | | | (_| |  __/>  <  |_____| |  _|  
+    |_| \_\         |___|_| |_|\__,_|\___/_/\_\         |_
+   "R-Index-F Library for String Indexing"
+   by Nathaniel Brown, Travis Gagie and Massimiliano Rossi
+The input file cannot contain the characters 0, 1 or 2 which are
+used internally by the algorithm.
+"""
+
+dirname = os.path.dirname(os.path.abspath(__file__))
+
+bigbwt_dirname = os.path.join(dirname, "_deps/bigbwt-build")
+bigrepair_dirname = os.path.join(dirname, "_deps/bigrepair-src")
+thresholds_dirname = os.path.join(
+    dirname, "_deps/pfp_thresholds-build/test/src")
+rif_dirname = os.path.join(dirname, "test/src")
+
+parse_exe = os.path.join(bigbwt_dirname, "pscan.x")
+parse_fasta_exe = os.path.join(bigbwt_dirname, "newscan.x")
+parseNT_exe = os.path.join(bigbwt_dirname, "newscanNT.x")
+
+parsebwt_exe = os.path.join(bigbwt_dirname, "bwtparse")
+parsebwt_exe64 = os.path.join(bigbwt_dirname, "bwtparse64")
+pfbwt_exe = os.path.join(bigbwt_dirname, "pfbwt.x")
+pfbwtNT_exe = os.path.join(bigbwt_dirname, "pfbwtNT.x")
+pfbwt_exe64 = os.path.join(bigbwt_dirname, "pfbwt64.x")
+pfbwtNT_exe64 = os.path.join(bigbwt_dirname, "pfbwtNT64.x")
+
+pfp_thresholds = os.path.join(thresholds_dirname, "pfp_thresholds")
+pfp_thresholds64 = os.path.join(thresholds_dirname, "pfp_thresholds64")
+
+rif_build_exe = os.path.join(rif_dirname, "build_rif")
+
+# Temporarily borrowed to build RLE compressed BWT files
+class PFPthresholds(threading.Thread):
+    def __init__(self, name, counter, args):
+        threading.Thread.__init__(self)
+        self.threadID = counter
+        self.name = name
+        self.counter = counter
+        self.args = args
+
+    def run(self):
+      args = self.args
+      logfile = args.logfile
+      logfile_name = args.logfile_name
+      print("{} PFP started!".format(self.getName()))        # "Thread-x started!"
+
+      start = time.time()
+      parse_size = os.path.getsize(args.input+".parse")/4
+      dictionary_size = os.path.getsize(args.input+".dict")
+
+      if(parse_size >=  (2**31-1) or dictionary_size >=  (2**31-4) ):
+        command = "{exe} {file} -w {wsize}".format(
+                  exe = os.path.join(args.bigbwt_dir,pfp_thresholds64),
+                  wsize=args.wsize, file=args.input)
+      else:
+        command = "{exe} {file} -w {wsize}".format(
+            exe = os.path.join(args.bigbwt_dir,pfp_thresholds),
+            wsize=args.wsize, file=args.input)
+
+      command += " -r"
+      
+      print("==== Computing RLE BWT Files. Command:", command)
+      if(execute_command(command,logfile,logfile_name)!=True):
+        return
+      print("RLE BWT Files Elapsed time: {0:.4f}".format(time.time()-start));
+
+
+
+class BWT(threading.Thread):
+  def __init__(self, name, counter, args):
+        threading.Thread.__init__(self)
+        self.threadID = counter
+        self.name = name
+        self.counter = counter
+        self.args = args
+
+  def run(self):
+      args = self.args
+      logfile = args.logfile
+      logfile_name = args.logfile_name
+      print("{} BWT started!".format(self.getName()))        # "Thread-x started!"
+
+      # ----------- computation of the BWT of the parsing
+      start = time.time()
+      parse_size = os.path.getsize(args.input+".parse")/4
+      if(parse_size >=  (2**32-1) ):
+        print("Sorry, the parse contains %d words" %  parse_size )
+        print("which is more than my current limit 2^32-2")
+        print("Please re-run the program with a larger modulus (currently %d)" % args.mod)
+        sys.exit(1)  
+      elif(parse_size >=  (2**31-1) ):
+        command = "{exe} {file}".format(
+                exe = os.path.join(args.bigbwt_dir,parsebwt_exe64), file=args.input)
+      else:
+        command = "{exe} {file}".format(
+                exe = os.path.join(args.bigbwt_dir,parsebwt_exe), file=args.input)
+      # if (args.s or args.e or args.S): command += " -s"
+      command += " -s"
+      if (args.t>0): command += " -t " + str(args.t)
+      print("==== Computing BWT of parsing. Command:", command)
+      if(execute_command(command,logfile,logfile_name)!=True):
+        return
+      print("Elapsed time: {0:.4f}".format(time.time()-start));      
+      
+      # ----------- compute final BWT using dictionary and BWT of parse    
+      start = time.time()     
+      if(os.path.getsize(args.input+".dict") >=  (2**31-4) ):
+        # 64 bit version with and without threads
+        if args.t>0 and args.s==False and args.e==False:
+          command = "{exe} -w {wsize} {file} -t {th}".format(
+                exe = os.path.join(args.bigbwt_dir,pfbwt_exe64),
+                wsize=args.wsize, file=args.input, th=args.t)
+        else:
+          command = "{exe} -w {wsize} {file}".format( 
+                  exe = os.path.join(args.bigbwt_dir,pfbwtNT_exe64),
+                  wsize=args.wsize, file=args.input)        
+      else:  # 32 bit version
+        if args.t>0 and args.s==False and args.e==False:
+          command = "{exe} -w {wsize} {file} -t {th}".format(
+                  exe = os.path.join(args.bigbwt_dir,pfbwt_exe),
+                  wsize=args.wsize, file=args.input, th=args.t)
+        else:
+          command = "{exe} -w {wsize} {file}".format(
+                  exe = os.path.join(args.bigbwt_dir,pfbwtNT_exe),
+                  wsize=args.wsize, file=args.input)
+      command += " -s"
+      command += " -e"
+      # if args.S: command += " -S"
+      
+      print("==== Computing final BWT. Command:", command)
+      if(execute_command(command,logfile,logfile_name)!=True):
+        return
+      print("BWT Elapsed time: {0:.4f}".format(time.time()-start))      
+
+
+
+
+
+
+class build_rif(threading.Thread):
+  def __init__(self, name, counter, args):
+      threading.Thread.__init__(self)
+      self.threadID = counter
+      self.name = name
+      self.counter = counter
+      self.args = args
+
+  def run(self):
+      args = self.args
+      logfile = args.logfile
+      logfile_name = args.logfile_name
+      print("{} r-index-f started!".format(self.getName()))
+
+      # ----------- computation of the BWT of the parsing
+      print("==== Building the r-index-f. ", flush=True)
+      start = time.time()
+
+      command = "{exe} {file}".format(exe=os.path.join(
+          args.bigbwt_dir, rif_build_exe), file=args.input)
+
+      print("==== Building the r-index-f. Command:", command, flush=True)
+      if(execute_command(command, logfile, logfile_name) != True):
+        return
+      print("Building the r-index-f Elapsed time: {0:.4f}".format(
+          time.time()-start), flush=True)
+
+
+
+
+
+def main():
+  parser = argparse.ArgumentParser(description=Description, formatter_class=argparse.RawTextHelpFormatter)
+  parser.add_argument('input', help='input file name', type=str)
+  parser.add_argument('-w', '--wsize', help='sliding window size (def. 10)', default=10, type=int)
+  parser.add_argument('-p', '--mod', help='hash modulus (def. 100)', default=100, type=int)
+  parser.add_argument('-t', help='number of helper threads (def. None)', default=0, type=int)
+  parser.add_argument('-k',  help='keep temporary files',action='store_true')
+  parser.add_argument('-v',  help='verbose',action='store_true')
+  parser.add_argument('-f', help='read fasta',action='store_true')
+  parser.add_argument('-m', help='print memory usage',action='store_true')
+ # parser.add_argument('--sum', help='compute output files sha256sum',action='store_true')
+  parser.add_argument('--parsing',  help='stop after the parsing phase (debug only)',action='store_true')
+  parser.add_argument('--compress',  help='compress output of the parsing phase (debug only)',action='store_true')
+  args = parser.parse_args()
+
+  if args.f and args.t > 0 and (".fq" in args.input or ".fastq" in args.input or ".fnq" in args.input):
+    print("bigbwt does not current support FASTQ format! Exiting...")
+    return
+
+  
+
+  logfile_name = args.input + ".log"
+  # get main bigbwt directory
+  args.bigbwt_dir = os.path.split(sys.argv[0])[0]
+  print("Sending logging messages to file:", logfile_name)
+  with open(logfile_name,"a") as logfile:
+    args.logfile = logfile
+    args.logfile_name = logfile_name
+    # ---------- parsing of the input file
+    start0 = start = time.time()
+    if args.t>0:
+      if args.f:
+        command = "{exe} {file} -w {wsize} -p {modulus} -t {th} -f".format(
+                exe = os.path.join(args.bigbwt_dir,parse_fasta_exe),
+                wsize=args.wsize, modulus = args.mod, th=args.t, file=args.input)
+      else:
+        command = "{exe} {file} -w {wsize} -p {modulus} -t {th}".format(
+                exe = os.path.join(args.bigbwt_dir,parse_exe),
+                wsize=args.wsize, modulus = args.mod, th=args.t, file=args.input)
+    else:
+      if args.f:
+        command = "{exe} {file} -w {wsize} -p {modulus} -t {th} -f".format(
+                exe = os.path.join(args.bigbwt_dir,parseNT_exe),
+                wsize=args.wsize, modulus = args.mod, th=args.t, file=args.input)
+      else:
+        command = "{exe} {file} -w {wsize} -p {modulus} -t".format(
+                exe = os.path.join(args.bigbwt_dir,parseNT_exe),
+                wsize=args.wsize, modulus = args.mod, file=args.input)
+    if args.v: command += " -v"
+    # if args.f: command += " -f"
+    command += " -s"
+    print("==== Parsing. Command:", command)
+    if(execute_command(command,logfile,logfile_name)!=True):
+      return
+    print("Elapsed time: {0:.4f}".format(time.time()-start))
+    if args.parsing:
+      # delete temporary parsing files
+      command = "rm -f {file}.parse_old {file}.last".format(file=args.input) # check format when -t is used
+      if(execute_command(command,logfile,logfile_name)!=True):
+        return
+      print("==== Stopping after the parsing phase as requested")
+      return
+    elif args.compress:
+      # save parsing files
+      start = time.time()
+      command = "tar -cJf {file}.parse.txz {file}.parse {file}.dict".format(file=args.input)
+      print("==== Compressing. Command:", command)
+      if(execute_command(command,logfile,logfile_name,env={"XZ_OPT":"-9"})!=True):
+        return
+      print("Elapsed time: {0:.4f}".format(time.time()-start))
+      delete_temp_files(args,logfile,logfile_name)
+      print("==== Done: Parsing output xz-compressed as requested")
+      return
+
+    # ----------- computation of the PFP data structures
+    
+    pfpds_thread = PFPthresholds(name = "{}".format(args.input), args=args, counter=1)  # ...Instantiate a thread and pass a unique ID to it
+    pfpds_thread.start()                                       # ...Start the thread, invoke the run method
+    # bwt_thread = BWT(name = "{}".format(args.input), args=args, counter=2)  # ...Instantiate a thread and pass a unique ID to it
+    # bwt_thread.start()                                       # ...Start the thread, invoke the run method
+
+    pfpds_thread.join()
+    # bwt_thread.join()
+
+    # ----------- build the r-index-f
+    build_rif_thread = build_rif(
+          name="{}".format(args.input), args=args, counter=2)
+    build_rif_thread.start()
+    build_rif_thread.join()
+
+    print("Total construction time: {0:.4f}".format(time.time()-start0))
+    # ---- print elapsed time to file
+    command = "echo Total construction time: {0:.4f}".format(time.time()-start0)
+    if(execute_command(command,logfile,logfile_name)!=True):
+      return
+
+    # ---- delete intermediate files
+    delete_files(args,logfile,logfile_name)
+
+    # --- start checking ---
+ 
+    # --- end checking ---
+
+  print("==== Done")
+
+# delete intermediate and unused files
+def delete_files(args,logfile,logfile_name):
+    if args.k==False:
+      print("==== Deleting temporary files.") # no need to show the command
+      command = "rm -f {file}.parse {file}.parse_old {file}.last {file}.bwlast {file}.dict {file}.ilist {file}.occ".format(file=args.input)
+      if(execute_command(command,logfile,logfile_name)!=True):
+        return
+      for i in range(args.t):
+        command = "rm -f {file}.{i}.parse_old {file}.{i}.last".format(file=args.input, i=i)
+        if(execute_command(command,logfile,logfile_name)!=True):
+          return
+      
+      command = "rm -f {file}.sai {file}.bwsai".format(file=args.input);
+      if(execute_command(command,logfile,logfile_name)!=True):
+        return
+      for i in range(args.t):
+        command = "rm -f {file}.{i}.sai".format(file=args.input, i=i)
+        if(execute_command(command,logfile,logfile_name)!=True):
+          return
+      
+      command = "rm -f {file}.thr {file}.thr_pos {file}.ssa {file}.esa".format(file=args.input);
+      if(execute_command(command,logfile,logfile_name)!=True):
+        return
+
+
+# compute hash digest for a file
+def file_digest(name,logfile):
+    try:
+      hash_command = "{exe} {infile}".format(exe=shasum_exe, infile=name)
+      hashsum = subprocess.check_output(hash_command.split(),stderr=logfile)
+      hashsum = hashsum.decode("utf-8").split()[0]
+    except:
+      hashsum = "Error!"
+    return hashsum
+
+# execute command: return True is everything OK, False otherwise
+def execute_command(command,logfile,logfile_name,env=None):
+  try:
+    #subprocess.run(command.split(),stdout=logfile,stderr=logfile,check=True,env=env)
+    subprocess.check_call(command.split(),stdout=logfile,stderr=logfile,env=env)
+  except subprocess.CalledProcessError:
+    print("Error executing command line:")
+    print("\t"+ command)
+    print("Check log file: " + logfile_name)
+    return False
+  return True
+
+
+
+if __name__ == '__main__':
+    main()

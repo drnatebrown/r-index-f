@@ -39,17 +39,7 @@ int main(int argc, char *const argv[])
   verbose("Building the R-Index-F");
   std::chrono::high_resolution_clock::time_point t_insert_start = std::chrono::high_resolution_clock::now();
 
-  std::string bwt_fname = args.filename + ".bwt";
-
-  std::string bwt_heads_fname = bwt_fname + ".heads";
-  std::ifstream ifs_heads(bwt_heads_fname);
-  std::string bwt_len_fname = bwt_fname + ".len";
-  std::ifstream ifs_len(bwt_len_fname);
-
-  ifs_heads.seekg(0);
-  ifs_len.seekg(0);
-  LF_table temp(ifs_heads, ifs_len);
-  r_index_f<> rif(temp);
+  r_index_f<> rif(args.filename);
 
   std::chrono::high_resolution_clock::time_point t_insert_end = std::chrono::high_resolution_clock::now();
 
@@ -63,12 +53,6 @@ int main(int argc, char *const argv[])
   std::ofstream out(outfile);
   rif.serialize(out);
   out.close();
-
-  outfile = args.filename + temp.get_file_extension();
-  std::ofstream out_LF(outfile);
-  temp.serialize(out_LF);
-  out_LF.close();
-
   t_insert_end = std::chrono::high_resolution_clock::now();
 
   verbose("Memory peak: ", malloc_count_peak());
