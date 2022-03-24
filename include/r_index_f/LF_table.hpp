@@ -34,6 +34,9 @@ using namespace std;
 class LF_table
 {
 public:
+    vector<vector<ulint>> sampled_scans;
+    sdsl::bit_vector has_sample;
+
     // Row of the LF table
     typedef struct LF_row
     {
@@ -153,7 +156,7 @@ public:
             }
         }
 
-        has_sample = sdsl::sd_vector<>(need_sample);
+        has_sample = need_sample;
     }
 
     const LF_row get(size_t i)
@@ -178,12 +181,17 @@ public:
 
         ulint interval = 0;
         ulint offset = 0;
+        //ulint step = 0;
 
         char c;
         while((c = get_char(interval)) > TERMINATOR) 
         {
             //out << c;
             std::pair<ulint, ulint> pos = LF(interval, offset);
+            //std::pair<ulint, ulint> old_pos = LF_old(interval, offset);
+            // if (pos.first != old_pos.first || pos.second != old_pos.second) {
+            //     cerr << "At step " << step << " expected: (" << old_pos.first << ", " << old_pos.second << ") and got (" << pos.first << ", " << pos.second << ")\n";
+            // }
             interval = pos.first;
             offset = pos.second;
         }
@@ -200,15 +208,27 @@ public:
 	    ulint next_offset = LF_runs[run].offset + offset;
 
         // Search if we have precomputed a predecessor for this offset which allows us to skip ahead
-        // if (!sampled_scans[run].empty() && next_offset >= sampled_scans[run][0])
-        // {
-        //     ulint pred_pos = scan_predecessor(run, next_offset);
-        //     next_interval += (pred_pos + 1)*d; // plus one since first index is d from original interval
-        //     next_offset -= sampled_scans[run][pred_pos];
-        // }
+        if (has_sample[run] && next_offset >= sampled_scans[run][0])
+        {
+            ulint pred_pos = scan_predecessor(run, next_offset);
+            next_interval += (pred_pos + 1)*d; // plus one since first index is d from original interval
+            next_offset -= (sampled_scans[run][pred_pos] - LF_runs[run].offset);
+        }
 
-        // Scan - fast forward to correct run in L containing our position
         while (next_offset >= LF_runs[next_interval].length) 
+        {
+            next_offset -= LF_runs[next_interval++].length;
+        }
+
+	    return std::make_pair(next_interval, next_offset);
+    }
+
+    std::pair<ulint, ulint> LF_old(ulint run, ulint offset)
+    {
+        ulint next_interval = LF_runs[run].interval;
+	    ulint next_offset = LF_runs[run].offset + offset;
+
+	    while (next_offset >= LF_runs[next_interval].length) 
         {
             next_offset -= LF_runs[next_interval++].length;
         }
@@ -297,7 +317,6 @@ public:
                     out.write((char *)&sampled_scans[i][j], sizeof(sampled_scans[i][j]));
                     written_bytes += sizeof(sampled_scans[i][j]);
                 }
-                written_bytes += LF_runs[i].serialize(out, v, "LF_run_" + std::to_string(i));
             }
         }
 
@@ -350,13 +369,11 @@ private:
     ulint d; // Bound on scans
 
     vector<LF_row> LF_runs;
-    vector<vector<ulint>> sampled_scans;
-    sdsl::sd_vector<> has_sample;
 
     ulint scan_predecessor(ulint run, ulint offset) {
         // Get first element equal to or greater than sampled offset
         auto pred = std::lower_bound(sampled_scans[run].begin(), sampled_scans[run].end(), offset);
-        if(*pred != offset)
+        if(*pred != offset || std::distance(sampled_scans[run].begin(), pred) >= sampled_scans[run].size())
         {
             // Index in sampling array of predecessor (minus 1, since it is first element greater)
             pred -= 1;

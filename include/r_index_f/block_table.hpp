@@ -90,6 +90,8 @@ public:
         // Where the last character's position was wrt. current block
         std::unordered_map<uchar, ulint> last_c_pos = std::unordered_map<uchar, ulint>();
 
+        std::vector<std::vector<ulint>> scan_bounds = std::vector<std::vector<ulint>>();
+
         ulint b = 0;
         ulint i = 0;
         while (i < r) 
@@ -100,6 +102,8 @@ public:
             block_intervals.push_back(curr.interval);
             block_lens.push_back(curr.length);
             block_offsets.push_back(curr.offset);
+
+            scan_bounds.push_back(LF_rows.sampled_scans[i]);
 
             sampled_runs.push_back(i % idx_rate == 0);
             for (size_t j = 1; j < curr.length; j++)
@@ -131,7 +135,7 @@ public:
             // End of block of intervals, update block table
             if (i % block_size == 0 || i >= r)
             {        
-                blocks[b] = block(block_chars, block_intervals, block_lens, block_offsets, prior_LF);
+                blocks[b] = block(block_chars, block_intervals, block_lens, block_offsets, prior_LF, scan_bounds);
 
                 for(auto const& [c, pos] : last_c_pos)
                 {
@@ -147,6 +151,8 @@ public:
                 block_intervals = std::vector<ulint>();
                 block_lens = std::vector<ulint>();
                 block_offsets = std::vector<ulint>();
+
+                scan_bounds = std::vector<std::vector<ulint>>();
 
                 last_c_pos = std::unordered_map<uchar, ulint>();
 
