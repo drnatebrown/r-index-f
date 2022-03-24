@@ -26,17 +26,12 @@
 
 #include <sdsl/structure_tree.hpp>
 #include <sdsl/util.hpp>
-#include <sdsl/sd_vector.hpp>
-#include <sdsl/int_vector.hpp>
 
 using namespace std;
 
 class LF_table
 {
 public:
-    vector<vector<ulint>> sampled_scans;
-    sdsl::bit_vector has_sample;
-
     // Row of the LF table
     typedef struct LF_row
     {
@@ -77,7 +72,7 @@ public:
     LF_table() {}
 
     // TODO: Add builder for BWT (not heads/lengths)
-    LF_table(std::ifstream &heads, std::ifstream &lengths, ulint max_run = 0, ulint scan_bound = 10)
+    LF_table(std::ifstream &heads, std::ifstream &lengths, ulint max_run = 0)
     {
         heads.clear();
         heads.seekg(0);
@@ -118,10 +113,6 @@ public:
             n+=length;
         }
         r = LF_runs.size();
-        d = scan_bound;
-
-        sampled_scans = vector<vector<ulint>>(r);
-        sdsl::bit_vector need_sample = sdsl::bit_vector(r);
 
         ulint curr_L_num = 0;
         ulint L_seen = 0;
@@ -136,27 +127,16 @@ public:
                 LF_runs[pos].offset = F_seen - L_seen;
 
                 F_seen += LF_runs[pos].length;
-
-                ulint curr_offset = LF_runs[pos].offset;
-                ulint curr_scan = 0;
+            
                 while (curr_L_num < r && F_seen >= L_seen + LF_runs[curr_L_num].length) 
                 {
                     L_seen += LF_runs[curr_L_num].length;
-                    curr_offset += LF_runs[curr_L_num].length;
                     ++curr_L_num;
-                    ++curr_scan;
-
-                    // Store every dth offset (excluding first, which is trivial)
-                    if (curr_scan % d == 0)
-                    {
-                        need_sample[pos] = true;
-                        sampled_scans[pos].push_back(curr_offset);
-                    }
                 }
             }
         }
 
-        has_sample = need_sample;
+        mem_stats();
     }
 
     const LF_row get(size_t i)
@@ -175,23 +155,18 @@ public:
         return r;
     }
 
-    void invert(/*std::string outfile*/) 
+    void invert(std::string outfile) 
     {
-        //std::ofstream out(outfile);
+        std::ofstream out(outfile);
 
         ulint interval = 0;
         ulint offset = 0;
-        //ulint step = 0;
 
         char c;
         while((c = get_char(interval)) > TERMINATOR) 
         {
-            //out << c;
+            out << c;
             std::pair<ulint, ulint> pos = LF(interval, offset);
-            //std::pair<ulint, ulint> old_pos = LF_old(interval, offset);
-            // if (pos.first != old_pos.first || pos.second != old_pos.second) {
-            //     cerr << "At step " << step << " expected: (" << old_pos.first << ", " << old_pos.second << ") and got (" << pos.first << ", " << pos.second << ")\n";
-            // }
             interval = pos.first;
             offset = pos.second;
         }
@@ -203,27 +178,6 @@ public:
      * \return block position and offset of preceding character
      */
     std::pair<ulint, ulint> LF(ulint run, ulint offset)
-    {
-        ulint next_interval = LF_runs[run].interval;
-	    ulint next_offset = LF_runs[run].offset + offset;
-
-        // Search if we have precomputed a predecessor for this offset which allows us to skip ahead
-        if (has_sample[run] && next_offset >= sampled_scans[run][0])
-        {
-            ulint pred_pos = scan_predecessor(run, next_offset);
-            next_interval += (pred_pos + 1)*d; // plus one since first index is d from original interval
-            next_offset -= (sampled_scans[run][pred_pos] - LF_runs[run].offset);
-        }
-
-        while (next_offset >= LF_runs[next_interval].length) 
-        {
-            next_offset -= LF_runs[next_interval++].length;
-        }
-
-	    return std::make_pair(next_interval, next_offset);
-    }
-
-    std::pair<ulint, ulint> LF_old(ulint run, ulint offset)
     {
         ulint next_interval = LF_runs[run].interval;
 	    ulint next_offset = LF_runs[run].offset + offset;
@@ -252,18 +206,6 @@ public:
 
         verbose("Memory consumption (bytes).");
         verbose("              LF table: ", serialize(ns));
-        verbose("              Scan samples: ", serialize_scans(ns));
-    }
-
-    void bwt_stats()
-    {
-        ulint n = size();
-        ulint r = runs();
-        verbose("Number of BWT equal-letter runs: r = ", r);
-        verbose("Length of complete BWT: n = ", n);
-        verbose("Rate n/r = ", double(n) / r);
-        verbose("log2(r) = ", log2(double(r)));
-        verbose("log2(n/r) = ", log2(double(n) / r));
     }
 
     /* serialize to the ostream
@@ -289,38 +231,6 @@ public:
             written_bytes += LF_runs[i].serialize(out, v, "LF_run_" + std::to_string(i));
         }
 
-        size = sampled_scans.size();
-        out.write((char *)&size, sizeof(size));
-        written_bytes += sizeof(size);
-
-        return written_bytes;
-    }
-
-    size_t serialize_scans(std::ostream &out, sdsl::structure_tree_node *v = nullptr, std::string name ="")
-    {
-        sdsl::structure_tree_node *child = sdsl::structure_tree::add_child(v, name, sdsl::util::class_name(*this));
-        size_t written_bytes = 0;
-
-        written_bytes += has_sample.serialize(out, v, "has_sample");
-
-        size_t size = sampled_scans.size();
-        out.write((char *)&size, sizeof(size));
-        written_bytes += sizeof(size);
-
-        for(size_t i = 0; i < size; ++i)
-        {
-            if (has_sample[i]) {
-                size_t size_j = sampled_scans[i].size();
-                out.write((char *)&size_j, sizeof(size_j));
-                written_bytes += sizeof(size_j);
-                for(size_t j = 0; j < size_j; ++j)
-                {
-                    out.write((char *)&sampled_scans[i][j], sizeof(sampled_scans[i][j]));
-                    written_bytes += sizeof(sampled_scans[i][j]);
-                }
-            }
-        }
-
         return written_bytes;
     }
 
@@ -333,56 +243,19 @@ public:
 
         in.read((char *)&n, sizeof(n));
         in.read((char *)&r, sizeof(r));
-        in.read((char *)&d, sizeof(d));
 
         in.read((char *)&size, sizeof(size));
-        LF_runs = vector<LF_row>(size);
+        LF_runs = std::vector<LF_row>(size);
         for(size_t i = 0; i < size; ++i)
         {
             LF_runs[i].load(in);
         }
     }
-
-    void load_scans(std::istream &in)
-    {
-        has_sample.load(in);
-        
-        size_t size;
-        in.read((char *)&size, sizeof(size));
-        sampled_scans = vector<vector<ulint>>(size);
-        for(size_t i = 0; i < size; ++i)
-        {
-            if (has_sample[i])
-            {
-                size_t size_j;
-                in.read((char *)&size_j, sizeof(size_j));
-                sampled_scans[i] = vector<ulint>(size_j);
-                for(size_t j = 0; i < size_j; ++j)
-                {
-                    in.read((char *)&sampled_scans[i][j], sizeof(sampled_scans[i][j]));
-                }
-            }
-        }
-    }
-
 private:
     ulint n; // Length of BWT
     ulint r; // Runs of BWT
-    ulint d; // Bound on scans
 
     vector<LF_row> LF_runs;
-
-    ulint scan_predecessor(ulint run, ulint offset) {
-        // Get first element equal to or greater than sampled offset
-        auto pred = std::lower_bound(sampled_scans[run].begin(), sampled_scans[run].end(), offset);
-        if(*pred != offset || std::distance(sampled_scans[run].begin(), pred) >= sampled_scans[run].size())
-        {
-            // Index in sampling array of predecessor (minus 1, since it is first element greater)
-            pred -= 1;
-        }
-
-        return std::distance(sampled_scans[run].begin(), pred);
-    }
 };
 
 #endif /* end of include guard: _LF_TABLE_HH */

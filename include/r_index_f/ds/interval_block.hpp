@@ -29,7 +29,6 @@
 #include <ds/symbol_map.hpp>
 #include <sdsl/dac_vector.hpp>
 
-#include <ds/scan_list.hpp>
 #include <ds/heads_bv_w.hpp>
 #include <ds/ACGT_map.hpp>
 
@@ -39,7 +38,6 @@ template  < class heads_t = heads_bv_w<>,
             class intervals_t = intervals_rank_w<>,
             class lengths_t = dac_vector_dp<>,
             class offsets_t = dac_vector_dp<>,
-            class scan_sample_t = scan_list<>,
             template<class> class char_map_t = ACGT_map >
 class interval_block
 {
@@ -59,23 +57,11 @@ private:
     pos_map prior_block_LF;
     pos_map next_block_LF;
 
-    // bounds total scan using stored sampled offsets
-    scan_sample_t scan_samples;
-
     // For a row k with offset d, character c of rank c_rank, compute it's LF
     interval_pos LF(ulint k, ulint d, uchar c, ulint c_rank)
     {
         ulint q = get_interval(c, c_rank);
-        ulint base_d = get_offset(k);
-        ulint d_prime = d + base_d;
-
-        // Search if we have precomputed a predecessor for this offset which allows us to skip ahead
-        if (scan_samples.can_skip(k, d_prime))
-        {
-            ulint pred_pos = scan_samples.predecessor(k, d_prime);
-            q += scan_samples.skips(pred_pos); // plus one since first index is d from original interval
-            d_prime -= scan_samples.offsets_passed(k, pred_pos, base_d);
-        }
+        ulint d_prime = d + get_offset(k);
 
         return interval_pos(q, d_prime);
     }
@@ -83,7 +69,7 @@ private:
 public:
     interval_block() {}
 
-    interval_block(std::vector<uchar> chars, std::vector<ulint> ints, std::vector<ulint> lens, std::vector<ulint> offs, std::unordered_map<uchar, interval_pos> prior_LF, std::vector<std::vector<ulint>> scans) {
+    interval_block(std::vector<uchar> chars, std::vector<ulint> ints, std::vector<ulint> lens, std::vector<ulint> offs, std::unordered_map<uchar, interval_pos> prior_LF) {
         heads = heads_t(chars);
         intervals = intervals_t(chars, ints);
         lengths = lengths_t(lens);
@@ -91,8 +77,6 @@ public:
 
         prior_block_LF = pos_map(prior_LF);
         next_block_LF = pos_map();
-
-        scan_samples = scan_sample_t(scans);
     }
 
     // Return the character at row k
@@ -228,8 +212,6 @@ public:
         written_bytes += prior_block_LF.serialize(out,v,"Prior_Block_LF");
         written_bytes += next_block_LF.serialize(out,v,"Next_Block_LF");
 
-        written_bytes += scan_samples.serialize(out,v,"Scan_Samples");
-
         sdsl::structure_tree::add_size(child, written_bytes);
         return written_bytes;
     }
@@ -246,8 +228,6 @@ public:
 
         prior_block_LF.load(in);
         next_block_LF.load(in);
-
-        scan_samples.load(in);
     }
 };
 
