@@ -57,7 +57,7 @@ public:
             pred -= 1;
         }
 
-        return std::distance(samples.begin(), pred);
+        std::distance(samples.begin(), pred);
     }
 
     /* serialize the structure to the ostream
