@@ -301,11 +301,12 @@ public:
         sdsl::structure_tree_node *child = sdsl::structure_tree::add_child(v, name, sdsl::util::class_name(*this));
         size_t written_bytes = 0;
 
+        written_bytes += has_sample.serialize(out, v, "has_sample");
+
         size_t size = sampled_scans.size();
         out.write((char *)&size, sizeof(size));
         written_bytes += sizeof(size);
 
-        written_bytes += has_sample.serialize(out, v, "has_sample");
         for(size_t i = 0; i < size; ++i)
         {
             if (has_sample[i]) {
@@ -344,10 +345,11 @@ public:
 
     void load_scans(std::istream &in)
     {
+        has_sample.load(in);
+        
         size_t size;
         in.read((char *)&size, sizeof(size));
         sampled_scans = vector<vector<ulint>>(size);
-        has_sample.load(in);
         for(size_t i = 0; i < size; ++i)
         {
             if (has_sample[i])
