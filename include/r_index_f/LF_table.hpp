@@ -35,7 +35,7 @@ class LF_table
 {
 public:
     vector<vector<ulint>> sampled_scans;
-    sdsl::bit_vector has_sample;
+    sdsl::sd_vector<> has_sample;
 
     // Row of the LF table
     typedef struct LF_row
@@ -156,7 +156,7 @@ public:
             }
         }
 
-        has_sample = need_sample;
+        has_sample = sdsl::sd_vector<>(need_sample);
     }
 
     const LF_row get(size_t i)
@@ -175,6 +175,27 @@ public:
         return r;
     }
 
+    void invert_bound(/*std::string outfile*/) 
+    {
+        //std::ofstream out(outfile);
+
+        ulint interval = 0;
+        ulint offset = 0;
+
+        char c;
+        while((c = get_char(interval)) > TERMINATOR) 
+        {
+            //out << c;
+            std::pair<ulint, ulint> pos = LF(interval, offset);
+            //std::pair<ulint, ulint> old_pos = LF_old(interval, offset);
+            // if (pos.first != old_pos.first || pos.second != old_pos.second) {
+            //     cerr << "At step " << step << " expected: (" << old_pos.first << ", " << old_pos.second << ") and got (" << pos.first << ", " << pos.second << ")\n";
+            // }
+            interval = pos.first;
+            offset = pos.second;
+        }
+    }
+
     void invert(/*std::string outfile*/) 
     {
         //std::ofstream out(outfile);
@@ -187,7 +208,7 @@ public:
         while((c = get_char(interval)) > TERMINATOR) 
         {
             //out << c;
-            std::pair<ulint, ulint> pos = LF(interval, offset);
+            std::pair<ulint, ulint> pos = LF_old(interval, offset);
             //std::pair<ulint, ulint> old_pos = LF_old(interval, offset);
             // if (pos.first != old_pos.first || pos.second != old_pos.second) {
             //     cerr << "At step " << step << " expected: (" << old_pos.first << ", " << old_pos.second << ") and got (" << pos.first << ", " << pos.second << ")\n";
@@ -346,7 +367,7 @@ public:
     void load_scans(std::istream &in)
     {
         has_sample.load(in);
-        
+
         size_t size;
         in.read((char *)&size, sizeof(size));
         sampled_scans = vector<vector<ulint>>(size);
