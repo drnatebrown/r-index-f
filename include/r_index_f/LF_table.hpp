@@ -180,14 +180,14 @@ public:
     std::pair<ulint, ulint> LF(ulint run, ulint offset)
     {
         ulint next_interval = LF_runs[run].interval;
-	    ulint next_offset = LF_runs[run].offset + offset;
+        ulint next_offset = LF_runs[run].offset + offset;
 
-	    while (next_offset >= LF_runs[next_interval].length) 
+        while (next_offset >= LF_runs[next_interval].length) 
         {
             next_offset -= LF_runs[next_interval++].length;
         }
 
-	    return std::make_pair(next_interval, next_offset);
+        return std::make_pair(next_interval, next_offset);
     }
 
     uchar get_char(ulint i)
@@ -206,6 +206,17 @@ public:
 
         verbose("Memory consumption (bytes).");
         verbose("              LF table: ", serialize(ns));
+    }
+
+    void bwt_stats()
+    {
+        ulint n = size();
+        ulint r = runs();
+        verbose("Number of BWT equal-letter runs: r = ", r);
+        verbose("Length of complete BWT: n = ", n);
+        verbose("Rate n/r = ", double(n) / r);
+        verbose("log2(r) = ", log2(double(r)));
+        verbose("log2(n/r) = ", log2(double(n) / r));
     }
 
     /* serialize to the ostream
@@ -251,6 +262,7 @@ public:
             LF_runs[i].load(in);
         }
     }
+
 private:
     ulint n; // Length of BWT
     ulint r; // Runs of BWT

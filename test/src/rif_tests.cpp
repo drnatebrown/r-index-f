@@ -28,7 +28,7 @@
 #include <r_index_f.hpp>
 #include <malloc_count.h>
 
-// Check inversion is correct (compared to explicit table)
+// Check inversion is correct (compared to explicit table) - FAIL FOR ACGT_MAP
 void test_invert(r_index_f<> rif, LF_table table) 
 {
     ulint steps = 0;
