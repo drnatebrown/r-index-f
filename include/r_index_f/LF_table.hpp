@@ -71,7 +71,6 @@ public:
 
     LF_table() {}
 
-    // TODO: Add builder for BWT (not heads/lengths)
     LF_table(std::ifstream &heads, std::ifstream &lengths, ulint max_run = 0)
     {
         heads.clear();
@@ -112,6 +111,98 @@ public:
             }    
             n+=length;
         }
+        r = LF_runs.size();
+
+        ulint curr_L_num = 0;
+        ulint L_seen = 0;
+        ulint F_seen = 0;
+        for(size_t i = 0; i < L_block_indices.size(); ++i) 
+        {
+            for(size_t j = 0; j < L_block_indices[i].size(); ++j) 
+            {
+                ulint pos = L_block_indices[i][j];
+
+                LF_runs[pos].interval = curr_L_num;
+                LF_runs[pos].offset = F_seen - L_seen;
+
+                F_seen += LF_runs[pos].length;
+            
+                while (curr_L_num < r && F_seen >= L_seen + LF_runs[curr_L_num].length) 
+                {
+                    L_seen += LF_runs[curr_L_num].length;
+                    ++curr_L_num;
+                }
+            }
+        }
+
+        mem_stats();
+    }
+
+    LF_table(std::ifstream &bwt, ulint max_run = 0)
+    {
+        bwt.clear();
+        bwt.seekg(0);
+        
+        LF_runs = vector<LF_row>();
+        vector<vector<size_t>> L_block_indices = vector<vector<size_t>>(ALPHABET_SIZE);
+        
+        char last_c;
+        char c;
+        ulint i = 0;
+        r = 0;
+        n = 0;
+        size_t length = 0;
+        while ((c = heads.get()) != EOF)
+        {
+            if (c <= TERMINATOR) c = TERMINATOR;
+            
+            if (i != 0 && c != last_c)
+            {
+                if (max_run > 0 && length > max_run) {
+                    ulint max_splits = length/max_run;
+                    for (size_t split = 0; split < max_splits; ++split)
+                    {
+                        LF_runs.push_back({last_c, max_run, 0, 0});
+                        L_block_indices[last_c].push_back(i++);
+                    }
+
+                    if (length % max_run != 0)
+                    {
+                        LF_runs.push_back({last_c, length % max_run, 0, 0});
+                        L_block_indices[last_c].push_back(i++);
+                    }
+                }
+                else {
+                    LF_runs.push_back({last_c, length, 0, 0});
+                    L_block_indices[last_c].push_back(i++);
+                }    
+                n+=length;
+                length = 0;
+            }
+            ++length;
+            last_c = c;
+        }
+        // Step for final character
+        if (max_run > 0 && length > max_run) {
+            ulint max_splits = length/max_run;
+            for (size_t split = 0; split < max_splits; ++split)
+            {
+                LF_runs.push_back({last_c, max_run, 0, 0});
+                L_block_indices[last_c].push_back(i++);
+            }
+
+            if (length % max_run != 0)
+            {
+                LF_runs.push_back({last_c, length % max_run, 0, 0});
+                L_block_indices[last_c].push_back(i++);
+            }
+        }
+        else {
+            LF_runs.push_back({last_c, length, 0, 0});
+            L_block_indices[last_c].push_back(i++);
+        }    
+        n+=length;
+
         r = LF_runs.size();
 
         ulint curr_L_num = 0;

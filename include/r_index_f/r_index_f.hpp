@@ -48,7 +48,7 @@ public:
 
     r_index_f() {}
 
-    r_index_f(std::string filename)
+    r_index_f(std::string filename, bool rle = true)
     {
         verbose("Building the R-Index-F using Block Table Compression");
 
@@ -56,15 +56,27 @@ public:
 
         std::string bwt_fname = filename + ".bwt";
 
-        std::string bwt_heads_fname = bwt_fname + ".heads";
-        std::ifstream ifs_heads(bwt_heads_fname);
-        std::string bwt_len_fname = bwt_fname + ".len";
-        std::ifstream ifs_len(bwt_len_fname);
+        if (rle)
+        {
+            std::string bwt_heads_fname = bwt_fname + ".heads";
+            std::ifstream ifs_heads(bwt_heads_fname);
+            std::string bwt_len_fname = bwt_fname + ".len";
+            std::ifstream ifs_len(bwt_len_fname);
 
-        ifs_heads.seekg(0);
-        ifs_len.seekg(0);
-        LF_table temp(ifs_heads, ifs_len);
-        B_table = table(temp);
+            ifs_heads.seekg(0);
+            ifs_len.seekg(0);
+            LF_table temp(ifs_heads, ifs_len);
+            B_table = table(temp);
+        }
+        else
+        {
+            std::ifstream ifs_bwt(bwt_fname);
+
+            ifs_bwt.seekg(0);
+            LF_table temp(ifs_bwt);
+            B_table = table(temp);
+        }
+
         std::chrono::high_resolution_clock::time_point t_insert_end = std::chrono::high_resolution_clock::now();
 
         verbose("Block-Table construction complete");
