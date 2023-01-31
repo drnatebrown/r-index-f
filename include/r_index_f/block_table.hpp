@@ -85,7 +85,7 @@ public:
         // Where characters prior to block mapped to, in case we can't find that character when we LF
         std::unordered_map<uchar, interval_pos> prior_LF = std::unordered_map<uchar, interval_pos>();
 
-        std::vector<bool> sampled_runs = std::vector<bool>();
+std::vector<bool> sampled_runs = std::vector<bool>();
 
         // Where the last character's position was wrt. current block
         std::unordered_map<uchar, ulint> last_c_pos = std::unordered_map<uchar, ulint>();
@@ -113,7 +113,7 @@ public:
                 // For all blocks prior without set values to find the next c's mapping, loop back and set
                 if (b > 0)
                 {
-                    auto[k, d] = LF_rows.LF(i, curr.offset);
+                    auto[k, d] = LF_rows.LF(i, 0);
                     interval_pos next_c = interval_pos(k, d);
 
                     ulint b_curr = b;
