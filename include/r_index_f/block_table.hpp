@@ -31,7 +31,7 @@
 
 using namespace sdsl;
 
-template  < ulint block_size = 1048576, // 2^20
+template  < //int log_block_size = 20, // 2^20
             ulint idx_rate = 8,
             class idx_vec = idx_bit_vector<>,
             class block = interval_block<>>
@@ -39,6 +39,7 @@ class block_table
 {
 private:
 
+    ulint block_size;
     vector<block> blocks;
     idx_vec idx_samples;
 
@@ -68,8 +69,10 @@ private:
 public:
     block_table() {}
 
-    block_table(LF_table LF_rows)
+    block_table(LF_table LF_rows, ulint bs)
     {
+        block_size = bs;
+
         r = LF_rows.runs();
         n = LF_rows.size();
 
@@ -285,8 +288,9 @@ public:
     /* load the interval block from the istream
     * \param in the istream
     */
-    void load(std::istream &in)
+    void load(std::istream &in, ulint bs)
     {
+        block_size = bs;
         size_t size;
 
         in.read((char *)&n, sizeof(n));

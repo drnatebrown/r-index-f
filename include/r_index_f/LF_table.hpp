@@ -152,7 +152,7 @@ public:
         r = 0;
         n = 0;
         size_t length = 0;
-        while ((c = heads.get()) != EOF)
+        while ((c = bwt.get()) != EOF)
         {
             if (c <= TERMINATOR) c = TERMINATOR;
             

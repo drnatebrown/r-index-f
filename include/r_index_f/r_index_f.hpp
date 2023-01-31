@@ -48,7 +48,7 @@ public:
 
     r_index_f() {}
 
-    r_index_f(std::string filename, bool rle = true)
+    r_index_f(std::string filename, ulint block_size, bool rle = true)
     {
         verbose("Building the R-Index-F using Block Table Compression");
 
@@ -66,7 +66,7 @@ public:
             ifs_heads.seekg(0);
             ifs_len.seekg(0);
             LF_table temp(ifs_heads, ifs_len);
-            B_table = table(temp);
+            B_table = table(temp, block_size);
         }
         else
         {
@@ -74,7 +74,7 @@ public:
 
             ifs_bwt.seekg(0);
             LF_table temp(ifs_bwt);
-            B_table = table(temp);
+            B_table = table(temp, block_size);
         }
 
         std::chrono::high_resolution_clock::time_point t_insert_end = std::chrono::high_resolution_clock::now();
@@ -86,11 +86,11 @@ public:
         bwt_stats();
     }
 
-    r_index_f(LF_table t) {
+    r_index_f(LF_table t, ulint block_size = 0) {
         verbose("Building the R-Index-F using Block Table Compression from LF Table Construction");
 
         std::chrono::high_resolution_clock::time_point t_insert_start = std::chrono::high_resolution_clock::now();
-        B_table = table(t);
+        B_table = table(t, block_size);
 
         std::chrono::high_resolution_clock::time_point t_insert_end = std::chrono::high_resolution_clock::now();
 
@@ -204,9 +204,9 @@ public:
     /* load the structure from the istream
      * \param in the istream
      */
-    void load(std::istream &in)
+    void load(std::istream &in, ulint bs)
     {
-        B_table.load(in);
+        B_table.load(in, bs);
     }
 
 private:
