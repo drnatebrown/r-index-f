@@ -34,7 +34,7 @@
 
 using namespace sdsl;
 
-template  < class heads_t = heads_bv_w<>,
+template  < class heads_t = heads_wt_w<>,
             class intervals_t = intervals_rank_w<>,
             class lengths_t = dac_vector_dp<>,
             class offsets_t = dac_vector_dp<>,
