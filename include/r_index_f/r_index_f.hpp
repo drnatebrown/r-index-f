@@ -48,7 +48,7 @@ public:
 
     r_index_f() {}
 
-    r_index_f(std::string filename, bool rle = true)
+    r_index_f(std::string filename, uint16_t splitting = 0, bool rle = true)
     {
         verbose("Building the R-Index-F using Block Table Compression");
 
@@ -62,10 +62,23 @@ public:
             std::ifstream ifs_heads(bwt_heads_fname);
             std::string bwt_len_fname = bwt_fname + ".len";
             std::ifstream ifs_len(bwt_len_fname);
-
             ifs_heads.seekg(0);
             ifs_len.seekg(0);
-            LF_table temp(ifs_heads, ifs_len);
+
+            LF_table temp;
+
+            if (splitting)
+            {
+                std::string splitting_filename = filename + "." + std::to_string(splitting) + "_col";
+                std::ifstream ifs_split(splitting_filename);
+                bit_vector run_splits;
+                run_splits.load(ifs_split);
+
+                temp = LF_table(ifs_heads, ifs_len, run_splits);
+            }
+            else {
+                temp = LF_table(ifs_heads, ifs_len);
+            }
             B_table = table(temp);
         }
         else

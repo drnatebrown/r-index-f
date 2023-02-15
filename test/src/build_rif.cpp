@@ -39,7 +39,7 @@ int main(int argc, char *const argv[])
   verbose("Building the R-Index-F");
   std::chrono::high_resolution_clock::time_point t_insert_start = std::chrono::high_resolution_clock::now();
 
-  r_index_f<> rif(args.filename);
+  r_index_f<> rif(args.filename, args.d, args.rle);
 
   std::chrono::high_resolution_clock::time_point t_insert_end = std::chrono::high_resolution_clock::now();
 
