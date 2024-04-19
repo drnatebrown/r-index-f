@@ -13,3 +13,11 @@ target_include_directories(rif_tests PUBLIC    "../../include/r_index_f"
                                         "../../include/block_compression" 
                                         )
 target_compile_options(rif_tests PUBLIC "-std=c++17")
+
+add_executable(crazy_train crazy_train.cpp)
+target_link_libraries(crazy_train sdsl divsufsort divsufsort64 malloc_count)
+target_include_directories(crazy_train PUBLIC    "../../include/r_index_f" 
+                                        "../../include/common"
+                                        "../../include/block_compression" 
+                                        )
+target_compile_options(crazy_train PUBLIC "-std=c++17")

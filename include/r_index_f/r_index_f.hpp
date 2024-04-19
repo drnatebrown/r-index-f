@@ -111,13 +111,70 @@ public:
         return B_table.size();
     }
 
-    size_t count(const std::string &pattern){
+    void count(const std::string &pattern, vector<ulint> tnls, std::ofstream &outfile) {
         range_t range = full_range();
         ulint m = pattern.size();
+
+        // TUNNEL STATS
+        ulint tnl_hit = 0;
+        ulint total_hit = 0;
+        ulint pattern_len = 0;
+        ulint tunnel_steps = 0;
+        ulint tunnel = false;
+        ulint width = 0;
+        
+        struct tunnel_stat {
+            ulint run;
+            ulint height;
+            ulint width;
+            ulint range_size;
+            ulint steps;
+            ulint pattern_len;
+        };
+
+        tunnel_stat curr;
+
         for (ulint i=0; i < m && range.second >= range.first; ++i){
             range = LF(range, pattern[m - i - 1]);
+            
+            pattern_len++;
+            if (tunnel && (width == 0 || get_char(range.first) != pattern[m - i - 1])) {
+                tunnel = false;
+                width = 0;
+
+                outfile << curr.run << "\t" << curr.height << "\t" << curr.width << "\t" << curr.range_size << "\t" << curr.steps << "\t" << curr.pattern_len + curr.steps << std::endl;
+                range = full_range();
+                pattern_len = 1;
+            }
+            if (range.first.run == range.second.run) {
+                total_hit++;
+                if (get_char(range.first) == pattern[m - i - 1] && tnls[range.first.run] > 1) {
+                    tnl_hit++;
+                    tunnel = true;
+                    width = tnls[range.first.run];
+                    curr = {range.first.run, B_table.get_length(range.first.run), width, (range.second.offset - range.first.offset) + 1, 0, pattern_len};
+                }
+                else {
+                    // reset query if falls within a non-tunnel run
+                    outfile << range.first.run << "\t" << B_table.get_length(range.first.run) << "\t" << 1 << "\t" << (range.second.offset - range.first.offset) << "\t" << 0 << "\t" << pattern_len << std::endl;
+                    range = full_range();
+                    pattern_len = 1;
+                }
+            }
+
+            curr.steps += tunnel;
+            if (width) --width;
         }
-        return interval_to_idx(range.second) - interval_to_idx(range.first) + 1;  
+        if (tunnel) {
+            outfile << curr.run << "\t" << curr.height << "\t" << curr.width << "\t" << curr.range_size << "\t" << curr.steps << "\t" << curr.pattern_len + curr.steps << std::endl;
+        }
+        else if (range.first.run == range.second.run) {
+            total_hit++;
+            outfile << range.first.run << "\t" << B_table.get_length(range.first.run) << "\t" << 1 << "\t" << (range.second.offset - range.first.offset) << "\t" << 0 << "\t" << curr.pattern_len << std::endl;
+        }
+
+        cout << tnl_hit << "/" << total_hit << " = " << std::setprecision(4) << ((1.0*tnl_hit)/total_hit)*100 << "%" << std::endl;
+        // return interval_to_idx(range.second) - interval_to_idx(range.first) + 1;  
     }
 
     // void invert() {

@@ -46,7 +46,7 @@ private:
             case 'C': return c_type;
             case 'G': return g_type;
             case 'T': return t_type;
-            default: throw std::out_of_range("Symbol" + std::to_string(c) + "not in map");
+            default: throw std::out_of_range("Symbol " + std::to_string(c) + " not in map");
         }
     }
 

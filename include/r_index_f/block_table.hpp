@@ -45,16 +45,6 @@ private:
     ulint r;
     ulint n;
 
-    ulint get_length(ulint run)
-    {
-        return get_block(run).get_length(row(run));
-    }
-    
-    ulint get_length(interval_pos pos)
-    {
-        return get_length(pos.run);
-    }
-
     ulint row(ulint run)
     {
         return run % block_size;
@@ -155,6 +145,16 @@ public:
         }
 
         idx_samples = idx_vec(sampled_runs);
+    }
+
+    ulint get_length(ulint run)
+    {
+        return get_block(run).get_length(row(run));
+    }
+
+    ulint get_length(interval_pos pos)
+    {
+        return get_length(pos.run);
     }
 
     block& get_block(ulint run)

@@ -32,6 +32,22 @@ using namespace std;
 class LF_table
 {
 public:
+    // typedef struct tunnel_chunk {
+    //     string text;
+    //     pair<ulint, ulint> escape;
+
+    //     bool match 
+    // }
+
+    // typedef struct tunnel {
+    //     string tunnel_text;
+    //     vector<pair<ulint, ulint>> escapes;
+
+    //     tunnel(ulint k, ulint stop_idx) {
+            
+    //     }
+    // }
+
     // Row of the LF table
     typedef struct LF_row
     {
