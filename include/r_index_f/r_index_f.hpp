@@ -65,16 +65,14 @@ public:
 
             ifs_heads.seekg(0);
             ifs_len.seekg(0);
-            LF_table temp(ifs_heads, ifs_len);
-            B_table = table(temp);
+            B_table = table(ifs_heads, ifs_len);
         }
         else
         {
             std::ifstream ifs_bwt(bwt_fname);
 
             ifs_bwt.seekg(0);
-            LF_table temp(ifs_bwt);
-            B_table = table(temp);
+            B_table = table(ifs_bwt);
         }
 
         std::chrono::high_resolution_clock::time_point t_insert_end = std::chrono::high_resolution_clock::now();

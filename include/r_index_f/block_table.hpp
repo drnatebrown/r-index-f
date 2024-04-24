@@ -45,6 +45,17 @@ private:
     ulint r;
     ulint n;
 
+    block& get_block(ulint run)
+    {
+        assert(run < r);
+        return blocks[run / block_size];
+    }
+
+    block& get_block(interval_pos pos)
+    {
+        return get_block(pos.run);
+    }
+
     ulint get_length(ulint run)
     {
         return get_block(run).get_length(row(run));
@@ -67,6 +78,11 @@ private:
 
 public:
     block_table() {}
+
+    block_table(std::ifstream &heads, std::ifstream &lengths) : 
+        block_table(LF_table(heads, lengths)) {}
+    
+    block_table(std::ifstream &bwt) : block_table(LF_table(bwt)) {}
 
     block_table(LF_table LF_rows)
     {
@@ -155,17 +171,6 @@ public:
         }
 
         idx_samples = idx_vec(sampled_runs);
-    }
-
-    block& get_block(ulint run)
-    {
-        assert(run < r);
-        return blocks[run / block_size];
-    }
-
-    block& get_block(interval_pos pos)
-    {
-        return get_block(pos.run);
     }
 
     uchar get_char(ulint run) 

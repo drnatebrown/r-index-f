@@ -22,12 +22,13 @@
 #define _IDX_BV_HH
 
 #include <common.hpp>
+
 #include <sdsl/rmq_support.hpp>
 #include <sdsl/sd_vector.hpp>
 #include <sdsl/structure_tree.hpp>
 #include <sdsl/util.hpp>
 
-template < class bit_vec = sd_vector<> >
+template < class bit_vec = sdsl::sd_vector<> >
 class idx_bit_vector
 {
 private:
@@ -42,10 +43,20 @@ public:
 
     idx_bit_vector() {}
 
-    idx_bit_vector(vector<bool> vec) {
+    idx_bit_vector(std::vector<bool> vec) {
         samples = bool_to_bit_vec<bit_vec>(vec);
         pred = idx_rank(&samples);
         run_sample = idx_select(&samples);
+    }
+
+    idx_bit_vector(std::vector<ulint> vec) {
+        bit_vec(vec.begin(), vec.end());
+        pred = idx_rank(&samples);
+        run_sample = idx_select(&samples);
+    }
+
+    ulint operator[](size_t i) {
+        return sample(i);
     }
 
     ulint sample(ulint rank)

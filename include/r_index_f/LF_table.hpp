@@ -301,8 +301,6 @@ public:
 
     void bwt_stats()
     {
-        ulint n = size();
-        ulint r = runs();
         verbose("Number of BWT equal-letter runs: r = ", r);
         verbose("Length of complete BWT: n = ", n);
         verbose("Rate n/r = ", double(n) / r);

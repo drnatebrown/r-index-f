@@ -69,7 +69,7 @@ public:
         }
     }
 
-    T& at(const uchar c) const
+    T& at(const uchar c)
     {
         if (!contains(c))
         {
@@ -79,7 +79,7 @@ public:
         return access[c];
     }
 
-    T& operator[](const uchar c) const
+    T& operator[](const uchar c)
     {
         return access[c];
     }
