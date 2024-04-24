@@ -185,14 +185,23 @@ public:
     // For a general interval position, return the idx wrt. the BWT
     ulint interval_to_idx(interval_pos pos)
     {
-        return pos.offset;
+        ulint curr = 0;
+        ulint idx = 0;
+        while(curr < pos.run) {
+            idx += run_len[curr++];
+        }
+        return idx + pos.offset;
     }
 
     // For a general index on the BWT, return the corresponding interval position
     interval_pos idx_to_interval(ulint idx)
     {
-        assert(idx < n);
-        return interval_pos(0, 0);
+        ulint curr = 0;
+        ulint curr_idx = 0;
+        while(idx - curr_idx > run_len[curr]) {
+            curr_idx += run_len[curr++];
+        }
+        return interval_pos(curr, idx - curr_idx);
     }
 
     std::string get_file_extension() const
