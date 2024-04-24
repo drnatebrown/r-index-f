@@ -156,9 +156,14 @@ public:
     interval_pos LF_prior(interval_pos pos, uchar c)
     {
         ulint c_rank = run_heads.rank(pos.run + 1, c);
-        if (c_rank == 0) return interval_pos();
+        if (c_rank == 0) {
+            return interval_pos();
+        }
+        else {
+            c_rank -= 1;
+        }
 
-        ulint prior_run = run_heads.select(c_rank, c);
+        ulint prior_run = run_heads.select(c_rank + 1, c);
         ulint prior_dest_idx = pos.offset;
         if (pos.run != prior_run) prior_dest_idx = (prior_run < r - 1) ? run_idx[prior_run + 1] - 1 : n - 1;
         
