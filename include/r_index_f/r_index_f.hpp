@@ -50,7 +50,7 @@ public:
 
     r_index_f(std::string filename, bool rle = true)
     {
-        verbose("Building the R-Index-F using Block Table Compression");
+        verbose("Building the R-Index-F");
 
         std::chrono::high_resolution_clock::time_point t_insert_start = std::chrono::high_resolution_clock::now();
 
@@ -65,14 +65,14 @@ public:
 
             ifs_heads.seekg(0);
             ifs_len.seekg(0);
-            B_table = table(ifs_heads, ifs_len);
+            tbl = table(ifs_heads, ifs_len);
         }
         else
         {
             std::ifstream ifs_bwt(bwt_fname);
 
             ifs_bwt.seekg(0);
-            B_table = table(ifs_bwt);
+            tbl = table(ifs_bwt);
         }
 
         std::chrono::high_resolution_clock::time_point t_insert_end = std::chrono::high_resolution_clock::now();
@@ -88,7 +88,7 @@ public:
         verbose("Building the R-Index-F using Block Table Compression from LF Table Construction");
 
         std::chrono::high_resolution_clock::time_point t_insert_start = std::chrono::high_resolution_clock::now();
-        B_table = table(t);
+        tbl = table(t);
 
         std::chrono::high_resolution_clock::time_point t_insert_end = std::chrono::high_resolution_clock::now();
 
@@ -101,12 +101,12 @@ public:
 
     ulint runs()
     {
-        return B_table.runs();
+        return tbl.runs();
     }
 
     ulint size()
     {
-        return B_table.size();
+        return tbl.size();
     }
 
     size_t count(const std::string &pattern){
@@ -132,33 +132,33 @@ public:
 
     interval_pos LF(interval_pos pos)
     {
-        return B_table.LF(pos);
+        return tbl.LF(pos);
     }
 
     range_t LF(range_t range, uchar c)
     {
-        return range_t(B_table.LF_next(range.first, c), B_table.LF_prior(range.second, c));
+        return range_t(tbl.LF_next(range.first, c), tbl.LF_prior(range.second, c));
     }
 
     range_t full_range()
     {
-        return range_t(B_table.begin(), B_table.end());
+        return range_t(tbl.begin(), tbl.end());
     }
 
     ulint interval_to_idx(interval_pos pos)
     {
-        return B_table.interval_to_idx(pos);
+        return tbl.interval_to_idx(pos);
     }
 
     uchar get_char(interval_pos pos)
     {
-        return B_table.get_char(pos);
+        return tbl.get_char(pos);
     }
 
     // Return underlying table (not recommended, add methods to access its capabilities)
     table get_table()
     {
-        return B_table;
+        return tbl;
     }
 
     void mem_stats()
@@ -188,7 +188,7 @@ public:
         sdsl::structure_tree_node *child = sdsl::structure_tree::add_child(v, name, sdsl::util::class_name(*this));
         size_t written_bytes = 0;
 
-        written_bytes += B_table.serialize(out, v, "B_table");
+        written_bytes += tbl.serialize(out, v, "tbl");
 
         sdsl::structure_tree::add_size(child, written_bytes);
         return written_bytes;
@@ -196,7 +196,7 @@ public:
 
     std::string get_file_extension() const
     {
-        return ".rif";
+        return ".rif" + tbl.get_file_extension();
     }
 
     /* load the structure from the istream
@@ -204,11 +204,11 @@ public:
      */
     void load(std::istream &in)
     {
-        B_table.load(in);
+        tbl.load(in);
     }
 
 private:
-    table B_table;
+    table tbl;
 };
 
 #endif /* end of include guard: _R_INDEX_F_HH */

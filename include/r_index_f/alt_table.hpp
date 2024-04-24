@@ -38,6 +38,8 @@ class alt_table
 public:
     alt_table() {}
 
+    alt_table(std::ifstream &bwt) {}
+
     alt_table(std::ifstream &heads, std::ifstream &lengths)
     {
         heads.clear();
@@ -203,7 +205,7 @@ public:
         verbose("              Run_heads: ", run_heads.serialize(ns));
         verbose("                Run_len: ", run_len.serialize(ns));
         verbose("              Dest_pred: ", dest_pred.serialize(ns));
-        verbose("               Dest_off: ", offsets.serialize(ns));
+        verbose("               Dest_off: ", dest_off.serialize(ns));
     }
 
     void bwt_stats()

@@ -38,6 +38,8 @@ public:
 
     columnar_table() {}
 
+    columnar_table(std::ifstream &bwt) {}
+
     columnar_table(std::ifstream &heads, std::ifstream &lengths)
     {
         heads.clear();
@@ -207,7 +209,7 @@ public:
 
     std::string get_file_extension() const
     {
-        return ".columnar_table";
+        return ".columnar";
     }
 
     void mem_stats()

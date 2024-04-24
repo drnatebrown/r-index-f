@@ -259,6 +259,11 @@ public:
         return reduced_pos(interval_pos(base*idx_rate, idx-base));
     }
 
+    std::string get_file_extension() const
+    {
+        return ".block";
+    }
+
     /* serialize the interval block to the ostream
     * \param out     the ostream
     */
