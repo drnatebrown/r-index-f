@@ -21,6 +21,7 @@
 #ifndef _ALT_TABLE_HH
 #define _ALT_TABLE_HH
 
+#include "sdsl/vlc_vector.hpp"
 #include <sdsl/dac_vector.hpp>
 #include <common.hpp>
 
@@ -246,9 +247,9 @@ public:
         written_bytes += sizeof(r);
 
         written_bytes += run_heads.serialize(out, v, "Run_heads");
-        written_bytes += dest_off.serialize(out, v, "Offsets");
-        written_bytes += dest_pred.serialize(out, v, "Dest_pred");
         written_bytes += run_len.serialize(out, v, "Lengths");
+        written_bytes += dest_pred.serialize(out, v, "Dest_pred");
+        written_bytes += dest_off.serialize(out, v, "Offsets");
 
         return written_bytes;
     }
@@ -273,7 +274,7 @@ private:
 
     typedef heads_wt_w<> run_heads_t; // Huffman-Shaped WT
     typedef intervals_rank_w<base_bv<>, symbol_map> dest_pred_t; // Plain Bitvector per Character
-    typedef sdsl::dac_vector<> lengths_t; // Sparse Bitvector per Character
+    typedef sdsl::dac_vector_dp<> lengths_t; // Sparse Bitvector per Character
     typedef sdsl::dac_vector_dp<> offsets_t; // Sparse Bitvector
 
     run_heads_t run_heads;
