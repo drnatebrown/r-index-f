@@ -61,7 +61,7 @@ public:
             if (c <= TERMINATOR) c = TERMINATOR;
 
             chars.push_back(c);
-            lens.push_back(length);
+            lens.push_back((ulint) length);
             L_block_indices[c].push_back(i++);
 
             n+=length;
@@ -273,7 +273,7 @@ private:
 
     typedef heads_wt_w<> run_heads_t; // Huffman-Shaped WT
     typedef intervals_rank_w<base_bv<>, symbol_map> dest_pred_t; // Plain Bitvector per Character
-    typedef sdsl::dac_vector_dp<> lengths_t; // Sparse Bitvector per Character
+    typedef sdsl::dac_vector<> lengths_t; // Sparse Bitvector per Character
     typedef sdsl::dac_vector_dp<> offsets_t; // Sparse Bitvector
 
     run_heads_t run_heads;
