@@ -27,7 +27,9 @@
 #include <sdsl/io.hpp>
 #include <r_index_f.hpp>
 #include <columnar_table.hpp>
+#include <alt_block.hpp>
 #include <alt_table.hpp>
+#include <hybrid_table.hpp>
 #include <LF_table.hpp>
 #include <malloc_count.h>
 
@@ -37,18 +39,10 @@ int main(int argc, char *const argv[])
   Args args;
   parseArgs(argc, argv, args);
 
-  std::string bwt_heads_fname = args.filename + ".bwt.heads";
-  std::ifstream ifs_heads(bwt_heads_fname);
-  std::string bwt_len_fname = args.filename + ".bwt.len";
-  std::ifstream ifs_len(bwt_len_fname);
-
-  ifs_heads.seekg(0);
-  ifs_len.seekg(0);
-
-  verbose("Building the Alt-LF Table");
+  verbose("Building the Alt Table");
   std::chrono::high_resolution_clock::time_point t_insert_start = std::chrono::high_resolution_clock::now();
 
-  alt_table lf_table(ifs_heads, ifs_len);
+  r_index_f<alt_table> alt(args.filename);
 
   std::chrono::high_resolution_clock::time_point t_insert_end = std::chrono::high_resolution_clock::now();
 
@@ -59,12 +53,22 @@ int main(int argc, char *const argv[])
   verbose("Memory peak: ", malloc_count_peak());
   verbose("Elapsed time (s): ", std::chrono::duration<double, std::ratio<1>>(t_insert_end - t_insert_start).count());
 
-  // Building the r-index-f table
+  verbose("Serializing Table");
 
+  std::string outfile = args.filename + alt.get_file_extension();
+  std::ofstream out(outfile);
+  alt.serialize(out);
+  out.close();
+  t_insert_end = std::chrono::high_resolution_clock::now();
+
+  verbose("Memory peak: ", malloc_count_peak());
+  verbose("Elapsed time (s): ", std::chrono::duration<double, std::ratio<1>>(t_insert_end - t_insert_start).count());
+
+  // Building the r-index-f table
   // verbose("Building the R-Index-F");
   // t_insert_start = std::chrono::high_resolution_clock::now();
 
-  // r_index_f<> rif(lf_table);
+  // r_index_f<> rif(args.filename);
 
   // t_insert_end = std::chrono::high_resolution_clock::now();
 
@@ -72,13 +76,46 @@ int main(int argc, char *const argv[])
   // verbose("Memory peak: ", malloc_count_peak());
   // verbose("Elapsed time (s): ", std::chrono::duration<double, std::ratio<1>>(t_insert_end - t_insert_start).count());
 
-  // ifs_heads.seekg(0);
-  // ifs_len.seekg(0);
+  //  verbose("Serializing Table");
 
-  verbose("Building the Columnar Table");
+  // outfile = args.filename + rif.get_file_extension();
+  // std::ofstream out_1(outfile);
+  // rif.serialize(out_1);
+  // out_1.close();
+  // t_insert_end = std::chrono::high_resolution_clock::now();
+
+  // verbose("Memory peak: ", malloc_count_peak());
+  // verbose("Elapsed time (s): ", std::chrono::duration<double, std::ratio<1>>(t_insert_end - t_insert_start).count());
+
+  // verbose("Building the Columnar Table");
+  // t_insert_start = std::chrono::high_resolution_clock::now();
+
+  // r_index_f<columnar_table> cc(args.filename);
+
+  // t_insert_end = std::chrono::high_resolution_clock::now();
+
+  // cc.mem_stats();
+  // cc.bwt_stats();
+
+  // verbose("Construction Complete");
+  // verbose("Memory peak: ", malloc_count_peak());
+  // verbose("Elapsed time (s): ", std::chrono::duration<double, std::ratio<1>>(t_insert_end - t_insert_start).count());
+
+  // verbose("Serializing Table");
+
+  // outfile = args.filename + cc.get_file_extension();
+  // std::ofstream out_2(outfile);
+  // cc.serialize(out_2);
+  // out_2.close();
+  // t_insert_end = std::chrono::high_resolution_clock::now();
+
+  // verbose("Memory peak: ", malloc_count_peak());
+  // verbose("Elapsed time (s): ", std::chrono::duration<double, std::ratio<1>>(t_insert_end - t_insert_start).count());
+
+  verbose("Building the Alt-Block Table");
   t_insert_start = std::chrono::high_resolution_clock::now();
 
-  columnar_table cc(ifs_heads, ifs_len);
+  r_index_f<alt_block<>> alt_b(args.filename);
 
   t_insert_end = std::chrono::high_resolution_clock::now();
 
@@ -89,16 +126,16 @@ int main(int argc, char *const argv[])
   verbose("Memory peak: ", malloc_count_peak());
   verbose("Elapsed time (s): ", std::chrono::duration<double, std::ratio<1>>(t_insert_end - t_insert_start).count());
 
-  // verbose("Serializing Table");
+  verbose("Serializing Table");
 
-  // std::string outfile = args.filename + rif.get_file_extension();
-  // std::ofstream out(outfile);
-  // rif.serialize(out);
-  // out.close();
-  // t_insert_end = std::chrono::high_resolution_clock::now();
+  outfile = args.filename + alt_b.get_file_extension();
+  std::ofstream out_3(outfile);
+  alt_b.serialize(out_3);
+  out_3.close();
+  t_insert_end = std::chrono::high_resolution_clock::now();
 
-  // verbose("Memory peak: ", malloc_count_peak());
-  // verbose("Elapsed time (s): ", std::chrono::duration<double, std::ratio<1>>(t_insert_end - t_insert_start).count());
+  verbose("Memory peak: ", malloc_count_peak());
+  verbose("Elapsed time (s): ", std::chrono::duration<double, std::ratio<1>>(t_insert_end - t_insert_start).count());
 
   return 0;
 }

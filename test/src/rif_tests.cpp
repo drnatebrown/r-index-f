@@ -26,10 +26,13 @@
 
 #include <common.hpp>
 #include <r_index_f.hpp>
+#include <alt_table.hpp>
 #include <malloc_count.h>
 
+typedef r_index_f<alt_table> rif_t;
+
 // Check inversion is correct (compared to explicit table) - FAIL FOR ACGT_MAP
-void test_invert(r_index_f<> rif, LF_table table) 
+void test_invert(rif_t rif, LF_table table) 
 {
     ulint steps = 0;
     interval_pos pos(0,0);
@@ -45,7 +48,7 @@ void test_invert(r_index_f<> rif, LF_table table)
     }
 }
 
-void test_prior_LF(r_index_f<> rif, LF_table table)
+void test_prior_LF(rif_t rif, LF_table table)
 {
     std::string pattern = "CGATATCGCACAGATC"; // Occurs in example, should implement dynamic test
     interval_pos curr = rif.get_table().end();
@@ -67,7 +70,7 @@ void test_prior_LF(r_index_f<> rif, LF_table table)
     }
 }
 
-void test_next_LF(r_index_f<> rif, LF_table table)
+void test_next_LF(rif_t rif, LF_table table)
 {
     std::string pattern = "CGATATCGCACAGATC"; // Occurs in example, should implement dynamic test
     interval_pos curr = rif.get_table().begin();
@@ -91,7 +94,7 @@ void test_next_LF(r_index_f<> rif, LF_table table)
 }
 
 // Test pos to idx
-void test_idx_samples(r_index_f<> rif)
+void test_idx_samples(rif_t rif)
 {
     interval_pos curr = interval_pos(0,0);
     for (int i = 0; i < rif.size(); i++)
@@ -111,12 +114,14 @@ int main(int argc, char *const argv[])
     verbose("Loading the R-Index-F from B-Table");
     std::chrono::high_resolution_clock::time_point t_insert_start = std::chrono::high_resolution_clock::now();
 
-    r_index_f<> rif;
+    rif_t rif;
     std::string filename_rif = args.filename + rif.get_file_extension();
 
     ifstream fs_rif(filename_rif);
     rif.load(fs_rif);
     fs_rif.close();
+
+    verbose("Loading the R-Index-F from LF-Table");
 
     LF_table table;
     std::string filename_LF = args.filename + table.get_file_extension();
