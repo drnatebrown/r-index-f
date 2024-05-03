@@ -404,7 +404,7 @@ private:
     //     }
 
     //     void load(std::istream &in, size_t r, size_t curr_i) {
-    //         size_t dataSize = (r % block_size != 0 && curr_i == (r / block_size)) ? (r / block_size + 1)*r - r : block_size;
+    //         size_t dataSize = (r % block_size != 0 && curr_i == (r / block_size)) ? ((r / block_size) + 1)*block_size - r : block_size;
     //         dataSize = (dataSize / 4) + (dataSize % 4 != 0);
     //         data.resize(dataSize);
     //         in.read(reinterpret_cast<char*>(data.data()), dataSize * sizeof(uchar));
@@ -510,7 +510,7 @@ private:
         }
 
         void load(std::istream &in, size_t r, size_t curr_i) {
-            size_t dataSize = (r % block_size != 0 && curr_i == (r / block_size)) ? (r / block_size + 1)*r - r : block_size;
+            size_t dataSize = (r % block_size != 0 && curr_i == (r / block_size)) ? ((r / block_size) + 1)*block_size - r : block_size;
             data.resize(dataSize);
             in.read(reinterpret_cast<char*>(data.data()), dataSize * sizeof(uchar));
         }
