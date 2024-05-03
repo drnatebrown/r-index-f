@@ -167,7 +167,7 @@ public:
         }
         c_rank -= 1;
 
-        ulint prior_run = get_block(curr_run).run_heads(c_rank + 1, c);
+        ulint prior_run = get_block(curr_run).run_heads.select(c_rank + 1, c);
         ulint prior_off = (pos.run != prior_run) ? run_len(prior_run) - 1 : pos.offset;
         
         return LF(prior_run, prior_off, c, c_rank);
@@ -183,7 +183,7 @@ public:
         }
         if (c_rank + 1 > get_block(curr_run).run_heads.rank(block_size, c)) return interval_pos();
 
-        ulint next_run = get_block(curr_run).select(c_rank + 1, c);
+        ulint next_run = get_block(curr_run).run_heads.select(c_rank + 1, c);
         ulint next_off = (pos.run != next_run) ? 0 : pos.offset;
 
         return LF(next_run, next_off, c, c_rank);
@@ -305,196 +305,88 @@ public:
         blocks = std::vector<block>(num_blocks());
         for(size_t i = 0; i < blocks.size(); ++i)
         {
-            curr_i = i;
-            blocks[i].load(in);
+            blocks[i].load(in, r, i);
         }
     }
 
 private:
     ulint n; // Length of BWT
     ulint r; // Runs of BWT
-    size_t curr_i = 0;
 
-    struct vec_heads {
-        std::vector<uchar> data;
-        size_t cursor = 0;
-        size_t last_rank = 0;
-        uchar last_c = A; // Default to A
-
-        vec_heads() : data() {}
-
-        vec_heads(const std::vector<uchar>& input) {
-            data.reserve((input.size() / 4) + (input.size() % 4 != 0)); // Reserve space for packed 2-bit representations
-            uchar packed = 0;
-            int count = 0;
-            for (char c : input) {
-                packed |= map_to_2bit(c) << (count * 2);
-                if (++count == 4) {
-                    data.push_back(packed);
-                    packed = 0;
-                    count = 0;
-                }
-            }
-            if (count > 0) {
-                // Pad with A if the last byte is incomplete
-                packed |= A << (count * 2);
-                data.push_back(packed);
-            }
-        }
-
-        uchar map_to_2bit(char c) {
-            switch (c) {
-                case 'A': return A;
-                case 'C': return C;
-                case 'G': return G;
-                case 'T': return T;
-                default: return A; // Default to A for other characters
-            }
-        }
-
-        size_t rank(char c, size_t pos) {
-            size_t count = 0;
-            size_t i;
-            for (i = 0; i < pos; ++i) {
-                if (get_char(i) == map_to_2bit(c)) {
-                    count++;
-                }
-            }
-            cursor = i;
-            last_rank = count;
-            last_c = map_to_2bit(c);
-            return count;
-        }
-
-        size_t select(char c, size_t i) {
-            size_t count = 0;
-            for (size_t pos = cursor; pos < data.size() * 4; ++pos) {
-                if (get_char(pos) == map_to_2bit(c)) {
-                    count++;
-                    if (count == i) {
-                        return pos;
-                    }
-                }
-            }
-            return data.size() * 4; // Return size of data if not found
-        }
-
-        std::pair<size_t, char> inverse_select(size_t i) {
-            uchar packed = data[i / 4];
-            size_t pos_in_byte = (i % 4) * 2;
-            uchar c = (packed >> pos_in_byte) & 0b11;
-            size_t rank = rank_from_start(c, i);
-            return {rank, char_from_2bit(c)};
-        }
-
-        char operator[](size_t i) {
-            return char_from_2bit(get_char(i));
-        }
-
-        size_t serialize(std::ostream &out, sdsl::structure_tree_node *v = nullptr, std::string name = "") {
-            sdsl::structure_tree_node *child = sdsl::structure_tree::add_child(v, name, sdsl::util::class_name(*this));
-            size_t written_bytes = 0;
-
-            // Serialize the data size
-            size_t dataSize = data.size();
-
-            // Serialize the data
-            out.write(reinterpret_cast<char*>(data.data()), dataSize * sizeof(uchar));
-            written_bytes += dataSize * sizeof(uchar);
-
-            return written_bytes;
-        }
-
-        void load(std::istream &in, size_t r, size_t curr_i) {
-            size_t dataSize = (r % block_size != 0 && curr_i == - 1) ? (r / block_size + 1)*r - r : block_size;
-            dataSize = (dataSize / 4) + (dataSize % 4 != 0);
-            data.resize(dataSize);
-            in.read(reinterpret_cast<char*>(data.data()), dataSize * sizeof(uchar));
-        }
-
-    private:
-        size_t rank_from_start(uchar c, size_t i) {
-            size_t count = 0;
-            for (size_t pos = 0; pos <= i; ++pos) {
-                if (get_char(pos) == c) {
-                    count++;
-                }
-            }
-            return count;
-        }
-
-        char char_from_2bit(uchar c) {
-            switch (c) {
-                case A: return 'A';
-                case C: return 'C';
-                case G: return 'G';
-                case T: return 'T';
-                default: return 'A'; // Default to A for unknown characters
-            }
-        }
-
-        uchar get_char(size_t pos) {
-            size_t byte_index = pos / 4;
-            size_t bit_offset = (pos % 4) * 2;
-            return (data[byte_index] >> bit_offset) & 0b11;
-        }
-    };
-
-
-    // typedef struct vec_heads
-    // {
+    // struct vec_heads {
     //     std::vector<uchar> data;
     //     size_t cursor = 0;
     //     size_t last_rank = 0;
-    //     uchar last_c = 0;
+    //     uchar last_c = A; // Default to A
+
     //     vec_heads() : data() {}
 
-    //     vec_heads(const std::vector<uchar>& input) : data(input) {}
+    //     vec_heads(const std::vector<uchar>& input) {
+    //         data.reserve((input.size() / 4) + (input.size() % 4 != 0)); // Reserve space for packed 2-bit representations
+    //         uchar packed = 0;
+    //         int count = 0;
+    //         for (char c : input) {
+    //             packed |= map_to_2bit(c) << (count * 2);
+    //             if (++count == 4) {
+    //                 data.push_back(packed);
+    //                 packed = 0;
+    //                 count = 0;
+    //             }
+    //         }
+    //         if (count > 0) {
+    //             // Pad with A if the last byte is incomplete
+    //             packed |= A << (count * 2);
+    //             data.push_back(packed);
+    //         }
+    //     }
 
-    //     size_t rank(uchar c, size_t pos) {
+    //     uchar map_to_2bit(char c) {
+    //         switch (c) {
+    //             case 'A': return A;
+    //             case 'C': return C;
+    //             case 'G': return G;
+    //             case 'T': return T;
+    //             default: return A; // Default to A for other characters
+    //         }
+    //     }
+
+    //     size_t rank(char c, size_t pos) {
     //         size_t count = 0;
     //         size_t i;
     //         for (i = 0; i < pos; ++i) {
-    //             if (data[i] == c) {
+    //             if (get_char(i) == map_to_2bit(c)) {
     //                 count++;
     //             }
     //         }
     //         cursor = i;
     //         last_rank = count;
-    //         last_c = c;
+    //         last_c = map_to_2bit(c);
     //         return count;
     //     }
 
-    //     // Select function: finds the position of the ith character c
-    //     size_t select(uchar c, size_t i) {
+    //     size_t select(char c, size_t i) {
     //         size_t count = 0;
-    //         if (c == last_c && i > last_rank) {
-    //             count = last_rank;
-    //         }
-    //         else {
-    //             cursor = 0;
-    //         }
-    //         for (size_t pos = cursor; pos < data.size(); ++pos) {
-    //             if (data[pos] == c) {
+    //         for (size_t pos = cursor; pos < data.size() * 4; ++pos) {
+    //             if (get_char(pos) == map_to_2bit(c)) {
     //                 count++;
     //                 if (count == i) {
     //                     return pos;
     //                 }
     //             }
     //         }
-    //         return data.size(); // Return size of data if not found
+    //         return data.size() * 4; // Return size of data if not found
     //     }
 
-    //     // Inverse Select function: returns the rank at position i and its character
-    //     std::pair<size_t, uchar> inverse_select(size_t i) {
-    //         uchar c = data[i];
-    //         size_t rnk = rank(c, i);
-    //         return {rnk, c};
+    //     std::pair<size_t, char> inverse_select(size_t i) {
+    //         uchar packed = data[i / 4];
+    //         size_t pos_in_byte = (i % 4) * 2;
+    //         uchar c = (packed >> pos_in_byte) & 0b11;
+    //         size_t rank = rank_from_start(c, i);
+    //         return {rank, char_from_2bit(c)};
     //     }
 
-    //     // Access function: returns the character at position i
-    //     uchar operator[](size_t i) {
-    //         return data[i];
+    //     char operator[](size_t i) {
+    //         return char_from_2bit(get_char(i));
     //     }
 
     //     size_t serialize(std::ostream &out, sdsl::structure_tree_node *v = nullptr, std::string name = "") {
@@ -512,11 +404,117 @@ private:
     //     }
 
     //     void load(std::istream &in, size_t r, size_t curr_i) {
-    //         size_t dataSize = (r % block_size != 0 && curr_i == - 1) ? (r / block_size + 1)*r - r : block_size;
+    //         size_t dataSize = (r % block_size != 0 && curr_i == (r / block_size)) ? (r / block_size + 1)*r - r : block_size;
+    //         dataSize = (dataSize / 4) + (dataSize % 4 != 0);
     //         data.resize(dataSize);
     //         in.read(reinterpret_cast<char*>(data.data()), dataSize * sizeof(uchar));
     //     }
+
+    // private:
+    //     size_t rank_from_start(uchar c, size_t i) {
+    //         size_t count = 0;
+    //         for (size_t pos = 0; pos <= i; ++pos) {
+    //             if (get_char(pos) == c) {
+    //                 count++;
+    //             }
+    //         }
+    //         return count;
+    //     }
+
+    //     char char_from_2bit(uchar c) {
+    //         switch (c) {
+    //             case A: return 'A';
+    //             case C: return 'C';
+    //             case G: return 'G';
+    //             case T: return 'T';
+    //             default: return 'A'; // Default to A for unknown characters
+    //         }
+    //     }
+
+    //     uchar get_char(size_t pos) {
+    //         size_t byte_index = pos / 4;
+    //         size_t bit_offset = (pos % 4) * 2;
+    //         return (data[byte_index] >> bit_offset) & 0b11;
+    //     }
     // };
+
+
+    typedef struct vec_heads
+    {
+        std::vector<uchar> data;
+        size_t cursor = 0;
+        size_t last_rank = 0;
+        uchar last_c = 0;
+        vec_heads() : data() {}
+
+        vec_heads(const std::vector<uchar>& input) : data(input) {}
+
+        size_t rank(uchar c, size_t pos) {
+            size_t count = 0;
+            size_t i;
+            for (i = 0; i < pos; ++i) {
+                if (data[i] == c) {
+                    count++;
+                }
+            }
+            cursor = i;
+            last_rank = count;
+            last_c = c;
+            return count;
+        }
+
+        // Select function: finds the position of the ith character c
+        size_t select(uchar c, size_t i) {
+            size_t count = 0;
+            if (c == last_c && i > last_rank) {
+                count = last_rank;
+            }
+            else {
+                cursor = 0;
+            }
+            for (size_t pos = cursor; pos < data.size(); ++pos) {
+                if (data[pos] == c) {
+                    count++;
+                    if (count == i) {
+                        return pos;
+                    }
+                }
+            }
+            return data.size(); // Return size of data if not found
+        }
+
+        // Inverse Select function: returns the rank at position i and its character
+        std::pair<size_t, uchar> inverse_select(size_t i) {
+            uchar c = data[i];
+            size_t rnk = rank(c, i);
+            return {rnk, c};
+        }
+
+        // Access function: returns the character at position i
+        uchar operator[](size_t i) {
+            return data[i];
+        }
+
+        size_t serialize(std::ostream &out, sdsl::structure_tree_node *v = nullptr, std::string name = "") {
+            sdsl::structure_tree_node *child = sdsl::structure_tree::add_child(v, name, sdsl::util::class_name(*this));
+            size_t written_bytes = 0;
+
+            // Serialize the data size
+            size_t dataSize = data.size();
+
+            // Serialize the data
+            out.write(reinterpret_cast<char*>(data.data()), dataSize * sizeof(uchar));
+            written_bytes += dataSize * sizeof(uchar);
+
+            return written_bytes;
+        }
+
+        void load(std::istream &in, size_t r, size_t curr_i) {
+            size_t dataSize = (r % block_size != 0 && curr_i == (r / block_size)) ? (r / block_size + 1)*r - r : block_size;
+            data.resize(dataSize);
+            in.read(reinterpret_cast<char*>(data.data()), dataSize * sizeof(uchar));
+        }
+    };
 
     // typedef heads_wt_w<> run_heads_t; // Huffman-Shaped WT
     typedef vec_heads run_heads_t;
@@ -544,9 +542,9 @@ private:
             return written_bytes;
         }
 
-        void load(std::istream &in)
+        void load(std::istream &in, size_t r, size_t i)
         {
-            run_heads.load(in);
+            run_heads.load(in, r, i);
             run_len.load(in);
             dest_pred.load(in);
             dest_off.load(in);
@@ -567,7 +565,7 @@ private:
     }
 
     uchar run_heads (ulint i) {
-        return get_block(i).run_head[row(i)];
+        return get_block(i).run_heads[row(i)];
     }
 
     uchar run_len (ulint i) {
