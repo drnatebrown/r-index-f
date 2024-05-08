@@ -173,6 +173,14 @@ public:
     void load(std::istream &in)
     {
         bit_vecs.load(in);
+
+        for (size_t c = 0; c < ALPHABET_SIZE; ++c)
+        {
+            if (bit_vecs.contains(c))
+            {
+                bv_size = bit_vecs[c].size();
+            }
+        }
     }
 };
 
