@@ -186,7 +186,9 @@ public:
             b = &get_block(curr_run);
             c_rank = 0;
         }
-        if (c_rank + 1 > b->run_heads.rank(block_len(curr_run), c)) return interval_pos();
+        if ((curr_run / block_size) == blocks.size() - 1 && c_rank + 1 > b->run_heads.rank(block_len(curr_run), c)) {
+            return interval_pos();
+        }
 
         ulint next_run = first_block_run(curr_run) + b->run_heads.select(c_rank + 1, c);
         ulint next_off = (pos.run != next_run) ? 0 : pos.offset;
@@ -584,7 +586,7 @@ private:
 
     ulint block_len(ulint i) 
     {
-        if (i < r - 1 || r % block_size == 0) return block_size;
+        if (i / block_size < blocks.size() - 1 || (r % block_size) == 0) return block_size;
         return r - first_block_run(r);
     }
 
