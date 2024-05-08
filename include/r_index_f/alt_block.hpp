@@ -158,17 +158,19 @@ public:
     interval_pos LF_prior(interval_pos pos, uchar c)
     {
         ulint curr_run = pos.run;
-        ulint c_rank = get_block(curr_run).run_heads.rank(row(curr_run) + 1, c);
+        block& b = get_block(curr_run);
+        ulint c_rank = b.run_heads.rank(row(curr_run) + 1, c);
         while(c_rank == 0 && (curr_run / block_size) > 0) {
             curr_run = ((curr_run/block_size) * block_size) - 1;
-            c_rank = get_block(curr_run).run_heads.rank(row(curr_run) + 1, c);
+            b = get_block(curr_run);
+            c_rank = b.run_heads.rank(row(curr_run) + 1, c);
         }
         if (c_rank == 0) {
             return interval_pos();
         }
         c_rank -= 1;
 
-        ulint prior_run = get_block(curr_run).run_heads.select(c_rank + 1, c);
+        ulint prior_run = (first_block_run(curr_run)) + b.run_heads.select(c_rank + 1, c);
         ulint prior_off = (pos.run != prior_run) ? run_len(prior_run) - 1 : pos.offset;
         
         return LF(prior_run, prior_off, c, c_rank);
@@ -184,7 +186,7 @@ public:
         }
         if (c_rank + 1 > get_block(curr_run).run_heads.rank(block_size, c)) return interval_pos();
 
-        ulint next_run = get_block(curr_run).run_heads.select(c_rank + 1, c);
+        ulint next_run = ((first_block_run(curr_run))) + get_block(curr_run).run_heads.select(c_rank + 1, c);
         ulint next_off = (pos.run != next_run) ? 0 : pos.offset;
 
         return LF(next_run, next_off, c, c_rank);
@@ -571,6 +573,11 @@ private:
     {
         assert(run < r);
         return blocks[run / block_size];
+    }
+
+    ulint first_block_run(ulint run)
+    {
+        return (run / block_size) * block_size;
     }
 
     uchar run_heads (ulint i) {
