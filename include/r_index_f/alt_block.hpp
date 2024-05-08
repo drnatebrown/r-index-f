@@ -584,15 +584,15 @@ private:
         return get_block(i).run_heads[row(i)];
     }
 
-    uchar run_len (ulint i) {
+    ulint run_len (ulint i) {
         return get_block(i).run_len[row(i)];
     }
     
-    uchar dest_pred (ulint i, uchar c, ulint c_rank) {
+    ulint dest_pred (ulint i, uchar c, ulint c_rank) {
         return get_block(i).dest_pred.get(c, c_rank);
     }
 
-    uchar dest_off (ulint i) {
+    ulint dest_off (ulint i) {
         return get_block(i).dest_off[row(i)];
     }
 
