@@ -161,7 +161,7 @@ public:
         block& b = get_block(curr_run);
         ulint c_rank = b.run_heads.rank(row(curr_run) + 1, c);
         while(c_rank == 0 && (curr_run / block_size) > 0) {
-            curr_run = ((curr_run/block_size) * block_size) - 1;
+            curr_run = first_block_run(curr_run) - 1;
             b = get_block(curr_run);
             c_rank = b.run_heads.rank(row(curr_run) + 1, c);
         }
@@ -179,14 +179,16 @@ public:
     interval_pos LF_next(interval_pos pos, uchar c)
     {
         ulint curr_run = pos.run;
-        ulint c_rank = get_block(curr_run).run_heads.rank(row(curr_run), c);
-        while(c_rank + 1 > get_block(curr_run).run_heads.rank(block_size, c) && (curr_run / block_size) < blocks.size() - 1) {
+        block& b = get_block(curr_run);
+        ulint c_rank = b.run_heads.rank(row(curr_run), c);
+        while((curr_run / block_size) < blocks.size() - 1 && c_rank + 1 > b.run_heads.rank(block_size, c)) {
             curr_run = ((curr_run/block_size) + 1) * block_size;
-            c_rank = get_block(curr_run).run_heads.rank(row(curr_run) + 1, c);
+            b = get_block(curr_run);
+            c_rank = 0;
         }
-        if (c_rank + 1 > get_block(curr_run).run_heads.rank(block_size, c)) return interval_pos();
+        if (c_rank + 1 > b.run_heads.rank(block_len(curr_run), c)) return interval_pos();
 
-        ulint next_run = first_block_run(curr_run) + get_block(curr_run).run_heads.select(c_rank + 1, c);
+        ulint next_run = first_block_run(curr_run) + b.run_heads.select(c_rank + 1, c);
         ulint next_off = (pos.run != next_run) ? 0 : pos.offset;
 
         return LF(next_run, next_off, c, c_rank);
@@ -580,6 +582,12 @@ private:
         return (run / block_size) * block_size;
     }
 
+    ulint block_len(ulint i) 
+    {
+        if (i < r - 1 || r % block_size == 0) return block_size;
+        return r - first_block_run(r);
+    }
+
     uchar run_heads (ulint i) {
         return get_block(i).run_heads[row(i)];
     }
@@ -588,21 +596,22 @@ private:
         return get_block(i).run_len[row(i)];
     }
     
-    ulint dest_pred (ulint i, uchar c, ulint c_rank) {
-        return get_block(i).dest_pred.get(c, c_rank);
-    }
+    // ulint dest_pred (ulint i, uchar c, ulint c_rank) {
+    //     return get_block(i).dest_pred.get(c, c_rank);
+    // }
 
-    ulint dest_off (ulint i) {
-        return get_block(i).dest_off[row(i)];
-    }
+    // ulint dest_off (ulint i) {
+    //     return get_block(i).dest_off[row(i)];
+    // }
 
     ulint num_blocks() {
         return r / block_size + ((r % block_size) != 0);
     }
 
     interval_pos LF(ulint k, ulint d, uchar c, ulint c_rank) {
-        ulint next_interval = dest_pred(k, c, c_rank);
-        ulint next_off = dest_off(k) + d;
+        block& b = get_block(k);
+        ulint next_interval = b.dest_pred.get(c, c_rank);
+        ulint next_off = b.dest_off[row(k)] + d;
         return reduced_pos(interval_pos(next_interval, next_off));
     }
 };
