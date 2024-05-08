@@ -158,19 +158,19 @@ public:
     interval_pos LF_prior(interval_pos pos, uchar c)
     {
         ulint curr_run = pos.run;
-        block& b = get_block(curr_run);
-        ulint c_rank = b.run_heads.rank(row(curr_run) + 1, c);
+        block* b = get_block(curr_run);
+        ulint c_rank = b->run_heads.rank(row(curr_run) + 1, c);
         while(c_rank == 0 && (curr_run / block_size) > 0) {
             curr_run = first_block_run(curr_run) - 1;
             b = get_block(curr_run);
-            c_rank = b.run_heads.rank(row(curr_run) + 1, c);
+            c_rank = b->run_heads.rank(row(curr_run) + 1, c);
         }
         if (c_rank == 0) {
             return interval_pos();
         }
         c_rank -= 1;
 
-        ulint prior_run = first_block_run(curr_run) + b.run_heads.select(c_rank + 1, c);
+        ulint prior_run = first_block_run(curr_run) + b->run_heads.select(c_rank + 1, c);
         ulint prior_off = (pos.run != prior_run) ? run_len(prior_run) - 1 : pos.offset;
         
         return LF(prior_run, prior_off, c, c_rank);
@@ -179,16 +179,16 @@ public:
     interval_pos LF_next(interval_pos pos, uchar c)
     {
         ulint curr_run = pos.run;
-        block& b = get_block(curr_run);
-        ulint c_rank = b.run_heads.rank(row(curr_run), c);
-        while((curr_run / block_size) < blocks.size() - 1 && c_rank + 1 > b.run_heads.rank(block_size, c)) {
+        block* b = get_block(curr_run);
+        ulint c_rank = b->run_heads.rank(row(curr_run), c);
+        while((curr_run / block_size) < blocks.size() - 1 && c_rank + 1 > b->run_heads.rank(block_size, c)) {
             curr_run = ((curr_run/block_size) + 1) * block_size;
             b = get_block(curr_run);
             c_rank = 0;
         }
-        if (c_rank + 1 > b.run_heads.rank(block_len(curr_run), c)) return interval_pos();
+        if (c_rank + 1 > b->run_heads.rank(block_len(curr_run), c)) return interval_pos();
 
-        ulint next_run = first_block_run(curr_run) + b.run_heads.select(c_rank + 1, c);
+        ulint next_run = first_block_run(curr_run) + b->run_heads.select(c_rank + 1, c);
         ulint next_off = (pos.run != next_run) ? 0 : pos.offset;
 
         return LF(next_run, next_off, c, c_rank);
@@ -609,9 +609,9 @@ private:
     }
 
     interval_pos LF(ulint k, ulint d, uchar c, ulint c_rank) {
-        block& b = get_block(k);
-        ulint next_interval = b.dest_pred.get(c, c_rank);
-        ulint next_off = b.dest_off[row(k)] + d;
+        block* b = &get_block(k);
+        ulint next_interval = b->dest_pred.get(c, c_rank);
+        ulint next_off = b->dest_off[row(k)] + d;
         return reduced_pos(interval_pos(next_interval, next_off));
     }
 };
