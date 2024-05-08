@@ -23,6 +23,7 @@
 
 #include <common.hpp>
 
+#include <csignal>
 #include <ds/ACGT_map.hpp>
 #include <sdsl/wavelet_trees.hpp>
 #include <sdsl/int_vector.hpp>
@@ -104,11 +105,7 @@ public:
             {
                 bit_vecs.insert(std::pair<uchar, rank_select_bv>(c, rank_select_bv(bv_size)));
             }
-
-            if (bit_vecs.contains(c))
-            {
-                bit_vecs[c].bv[i] = true;
-            }
+            bit_vecs[c].bv[i] = true;
         }
 
         for (size_t i = 0; i < ALPHABET_SIZE; ++i)
@@ -123,6 +120,10 @@ public:
 
     ulint rank(ulint idx, uchar c)
     {
+        if (!bit_vecs.contains(c))
+        {
+            return 0;
+        }
         return bit_vecs[c].rank(idx);
     }
 

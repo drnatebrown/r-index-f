@@ -21,11 +21,11 @@
 #ifndef _ALT_BLOCK_HH
 #define _ALT_BLOCK_HH
 
-#include "sdsl/vlc_vector.hpp"
 #include <sdsl/dac_vector.hpp>
 #include <common.hpp>
 
 #include <ds/heads_wt_w.hpp>
+#include <ds/heads_bv_w.hpp>
 #include <ds/intervals_rank_w.hpp>
 #include <ds/interval_pos.hpp>
 
@@ -102,18 +102,19 @@ public:
 
         blocks = std::vector<block>(num_blocks()); // use ::move
         for (size_t i = 0; i < (r / block_size) * block_size; i += block_size) {
-            get_block(i).run_heads = run_heads_t(std::vector<uchar>(chars.begin() + i, chars.begin() + i + block_size));
-            get_block(i).dest_off = offsets_t(std::vector<ulint>(offs.begin() + i, offs.begin() + i + block_size));
-            get_block(i).dest_pred = dest_pred_t(std::vector<uchar>(chars.begin() + i, chars.begin() + i + block_size), std::vector<ulint>(lf_dest.begin() + i, lf_dest.begin() + i + block_size));
-            get_block(i).run_len = lengths_t(std::vector<ulint>(lens.begin() + i, lens.begin() + i + block_size));
+            block& b = get_block(i);
+            b.run_heads = run_heads_t(std::vector<uchar>(chars.begin() + i, chars.begin() + i + block_size));
+            b.dest_off = offsets_t(std::vector<ulint>(offs.begin() + i, offs.begin() + i + block_size));
+            b.dest_pred = dest_pred_t(std::vector<uchar>(chars.begin() + i, chars.begin() + i + block_size), std::vector<ulint>(lf_dest.begin() + i, lf_dest.begin() + i + block_size));
+            b.run_len = lengths_t(std::vector<ulint>(lens.begin() + i, lens.begin() + i + block_size));
         }
         if (r % block_size != 0) {
             size_t p = (r / block_size) * block_size;
-            block b = get_block(p);
-            get_block(p).run_heads = run_heads_t(std::vector<uchar>(chars.begin() + p, chars.end()));
-            get_block(p).dest_off = offsets_t(std::vector<ulint>(offs.begin() + p, offs.end()));
-            get_block(p).dest_pred = dest_pred_t(std::vector<uchar>(chars.begin() + p, chars.end()), std::vector<ulint>(lf_dest.begin() + p, lf_dest.end()));
-            get_block(p).run_len = lengths_t(std::vector<ulint>(lens.begin() + p, lens.end()));
+            block& b = get_block(p);
+            b.run_heads = run_heads_t(std::vector<uchar>(chars.begin() + p, chars.end()));
+            b.dest_off = offsets_t(std::vector<ulint>(offs.begin() + p, offs.end()));
+            b.dest_pred = dest_pred_t(std::vector<uchar>(chars.begin() + p, chars.end()), std::vector<ulint>(lf_dest.begin() + p, lf_dest.end()));
+            b.run_len = lengths_t(std::vector<ulint>(lens.begin() + p, lens.end()));
         }
         mem_stats();
     }
