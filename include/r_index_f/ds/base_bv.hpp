@@ -79,6 +79,7 @@ public:
         written_bytes += sizeof(base);
 
         written_bytes += diff_bv.serialize(out, v, "diff_bv");
+        written_bytes += diff_select.serialize(out, v, "diff_select");
 
         return written_bytes;
     }
@@ -90,7 +91,7 @@ public:
     {
         in.read((char *)&base, sizeof(base));
         diff_bv.load(in);
-        diff_select= bv_select_1(&diff_bv);
+        diff_select.load(in, &diff_bv);
     }
 };
 

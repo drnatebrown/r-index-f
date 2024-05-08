@@ -58,6 +58,8 @@ private:
             size_t written_bytes = 0;
 
             written_bytes += bv.serialize(out, v, "bv");
+            written_bytes += select.serialize(out, v, "bv_select_1");
+            written_bytes += rank.serialize(out, v, "bv_rank_1");
 
             return written_bytes;
         }
@@ -65,8 +67,8 @@ private:
         void load(std::istream &in)
         {
             bv.load(in);
-            select = bv_select_1(&bv);
-            rank = bv_rank_1(&bv);
+            select.load(in, &bv);
+            rank.load(in, &bv);
         }
     };
 
@@ -149,7 +151,7 @@ public:
 
     ulint size()
     {
-        return bv_size;;
+        return bv_size;
     }
 
     /* serialize the structure to the ostream
@@ -161,8 +163,6 @@ public:
         size_t written_bytes = 0;
 
         written_bytes += bit_vecs.serialize(out, v, "symbols");
-        out.write((char *)&bv_size, sizeof(bv_size));
-        written_bytes += sizeof(bv_size);
 
         return written_bytes;
     }
@@ -173,7 +173,6 @@ public:
     void load(std::istream &in)
     {
         bit_vecs.load(in);
-        in.read((char *)&bv_size, sizeof(bv_size));
     }
 };
 
