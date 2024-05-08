@@ -158,11 +158,11 @@ public:
     interval_pos LF_prior(interval_pos pos, uchar c)
     {
         ulint curr_run = pos.run;
-        block* b = get_block(curr_run);
+        block* b = &get_block(curr_run);
         ulint c_rank = b->run_heads.rank(row(curr_run) + 1, c);
         while(c_rank == 0 && (curr_run / block_size) > 0) {
             curr_run = first_block_run(curr_run) - 1;
-            b = get_block(curr_run);
+            b = &get_block(curr_run);
             c_rank = b->run_heads.rank(row(curr_run) + 1, c);
         }
         if (c_rank == 0) {
@@ -179,11 +179,11 @@ public:
     interval_pos LF_next(interval_pos pos, uchar c)
     {
         ulint curr_run = pos.run;
-        block* b = get_block(curr_run);
+        block* b = &get_block(curr_run);
         ulint c_rank = b->run_heads.rank(row(curr_run), c);
         while((curr_run / block_size) < blocks.size() - 1 && c_rank + 1 > b->run_heads.rank(block_size, c)) {
             curr_run = ((curr_run/block_size) + 1) * block_size;
-            b = get_block(curr_run);
+            b = &get_block(curr_run);
             c_rank = 0;
         }
         if (c_rank + 1 > b->run_heads.rank(block_len(curr_run), c)) return interval_pos();
