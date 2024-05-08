@@ -170,7 +170,7 @@ public:
         }
         c_rank -= 1;
 
-        ulint prior_run = (first_block_run(curr_run)) + b.run_heads.select(c_rank + 1, c);
+        ulint prior_run = first_block_run(curr_run) + b.run_heads.select(c_rank + 1, c);
         ulint prior_off = (pos.run != prior_run) ? run_len(prior_run) - 1 : pos.offset;
         
         return LF(prior_run, prior_off, c, c_rank);
@@ -186,7 +186,7 @@ public:
         }
         if (c_rank + 1 > get_block(curr_run).run_heads.rank(block_size, c)) return interval_pos();
 
-        ulint next_run = ((first_block_run(curr_run))) + get_block(curr_run).run_heads.select(c_rank + 1, c);
+        ulint next_run = first_block_run(curr_run) + get_block(curr_run).run_heads.select(c_rank + 1, c);
         ulint next_off = (pos.run != next_run) ? 0 : pos.offset;
 
         return LF(next_run, next_off, c, c_rank);
