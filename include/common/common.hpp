@@ -126,6 +126,7 @@ struct Args
   bool memo  = false; // print the memory usage
   bool rle   = false; // outpt RLBWT
   size_t th = 1; // number of threads
+  int d = 0; // splitting param
   bool is_fasta = false; // read a fasta file
 };
 
@@ -136,7 +137,7 @@ void parseArgs(int argc, char *const argv[], Args &arg)
   extern int optind;
 
   std::string sarg;
-  while ((c = getopt(argc, argv, "w:smcfl:rhp:t:")) != -1)
+  while ((c = getopt(argc, argv, "w:smcfl:rhp:td:")) != -1)
   {
     switch (c)
     {
@@ -152,6 +153,10 @@ void parseArgs(int argc, char *const argv[], Args &arg)
     case 't':
       sarg.assign(optarg);
       arg.th = stoi(sarg);
+      break;
+    case 'd':
+      sarg.assign(optarg);
+      arg.d = stoi(sarg);
       break;
     case 'f':
       arg.is_fasta = true;

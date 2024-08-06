@@ -19,11 +19,12 @@
    \date 02/11/2021
 */
 
-#include <iostream>
-#include <fstream> 
 
 #define VERBOSE
 
+#include "LF_table.hpp"
+#include <iostream>
+#include <fstream> 
 #include <common.hpp>
 #include <r_index_f.hpp>
 #include <malloc_count.h>
@@ -36,8 +37,11 @@ int main(int argc, char *const argv[])
     verbose("Loading the R-Index-F from B-Table");
     std::chrono::high_resolution_clock::time_point t_insert_start = std::chrono::high_resolution_clock::now();
 
-    r_index_f<> rif;
+    LF_table rif;
     std::string filename_rif = args.filename + rif.get_file_extension();
+    if(args.d) {
+        filename_rif += "." + std::to_string(args.d) + "_col";
+    }
 
     ifstream fs_rif(filename_rif);
     rif.load(fs_rif);
@@ -51,37 +55,11 @@ int main(int argc, char *const argv[])
 
     t_insert_start = std::chrono::high_resolution_clock::now();
 
-    FILE *fd;
-    std::string tunnel_file = args.filename + ".tnl";
-    if ((fd = fopen(tunnel_file.c_str(), "r")) == nullptr)
-        error("open() file " + tunnel_file + " failed");
-
-    vector<ulint> tunnels = vector<ulint>(rif.runs());
-    for (size_t i = 0; i < rif.runs(); ++i) {
-        if ((fread(&tunnels[i], 5, 1, fd)) != 1)
-            error("fread() file " + tunnel_file + " failed");
-    }
+    rif.get_order();
 
     t_insert_end = std::chrono::high_resolution_clock::now();
 
-    verbose("Tunnels load complete");
-    verbose("Memory peak: ", malloc_count_peak());
-    verbose("Elapsed time (s): ", std::chrono::duration<double, std::ratio<1>>(t_insert_end - t_insert_start).count());
-
-    std::ifstream t("/home/nbrown99/vast/data/chr19.1.trim.raw");
-    std::stringstream buffer;
-    buffer << t.rdbuf();
-    std::string pattern = buffer.str();
-
-    t_insert_start = std::chrono::high_resolution_clock::now();
-
-    std::ofstream outfile(args.filename + ".tnl_stats");
-    rif.count(pattern, tunnels, outfile);
-    outfile.close();
-
-    t_insert_end = std::chrono::high_resolution_clock::now();
-
-    verbose("Tunnel pattern query complete");
+    verbose("MEOV reordering query complete");
     verbose("Memory peak: ", malloc_count_peak());
     verbose("Elapsed time (s): ", std::chrono::duration<double, std::ratio<1>>(t_insert_end - t_insert_start).count());
 

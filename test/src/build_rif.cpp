@@ -19,10 +19,9 @@
    \date 02/11/2021
 */
 
-#include <iostream>
-
 #define VERBOSE
 
+#include "LF_table.hpp"
 #include <common.hpp>
 #include <sdsl/io.hpp>
 #include <r_index_f.hpp>
@@ -39,9 +38,31 @@ int main(int argc, char *const argv[])
   verbose("Building the R-Index-F");
   std::chrono::high_resolution_clock::time_point t_insert_start = std::chrono::high_resolution_clock::now();
 
-  r_index_f<> rif(args.filename);
+  std::string bwt_fname = args.filename + ".bwt";
+  std::string bwt_heads_fname = bwt_fname + ".heads";
+  std::ifstream ifs_heads(bwt_heads_fname);
+  std::string bwt_len_fname = bwt_fname + ".len";
+  std::ifstream ifs_len(bwt_len_fname);
+
+  LF_table rif;
+
+  if (args.d) {
+    std::string splitting_filename = args.filename + "." + std::to_string(args.d) + "_col";
+    cout << splitting_filename << endl;
+    std::ifstream ifs_split(splitting_filename);
+    bit_vector run_splits;
+    run_splits.load(ifs_split);
+
+    rif = LF_table(ifs_heads, ifs_len, run_splits);
+  }
+  else {
+    rif = LF_table(ifs_heads, ifs_len);
+  }
 
   std::chrono::high_resolution_clock::time_point t_insert_end = std::chrono::high_resolution_clock::now();
+
+  rif.mem_stats();
+  rif.bwt_stats();
 
   verbose("Construction Complete");
   verbose("Memory peak: ", malloc_count_peak());
@@ -50,6 +71,9 @@ int main(int argc, char *const argv[])
   verbose("Serializing Table");
 
   std::string outfile = args.filename + rif.get_file_extension();
+  if (args.d) {
+    outfile += "." + std::to_string(args.d) + "_col";
+  }
   std::ofstream out(outfile);
   rif.serialize(out);
   out.close();
