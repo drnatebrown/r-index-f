@@ -71,45 +71,47 @@ public:
 
     LF_table() {}
 
-    LF_table(std::ifstream &heads, std::ifstream &lengths, ulint max_run = 0)
+    LF_table(std::ifstream &heads, std::ifstream &lengths, sdsl::bit_vector splits)
     {
         heads.clear();
         heads.seekg(0);
         lengths.clear();
         lengths.seekg(0);
-        
+
         LF_runs = vector<LF_row>();
         vector<vector<size_t>> L_block_indices = vector<vector<size_t>>(ALPHABET_SIZE);
-        
+
         char c;
         ulint i = 0;
         r = 0;
+        ulint bv_r = 0;
+        ulint true_r = 0;
+        for (size_t i = 0; i < splits.size(); ++i) {
+            bv_r += splits[i];
+        }
         n = 0;
         while ((c = heads.get()) != EOF)
         {
             size_t length = 0;
             lengths.read((char *)&length, 5);
+            n+=length;
+            true_r += 1;
             if (c <= TERMINATOR) c = TERMINATOR;
 
-            if (max_run > 0 && length > max_run) {
-                ulint max_splits = length/max_run;
-                for (size_t split = 0; split < max_splits; ++split)
+            size_t curr_len = 1; // Assume we start at a run-head
+            for (size_t bwt_i = n - length + 1; bwt_i < n; bwt_i++)
+            {
+                if (splits[bwt_i]) 
                 {
-                    LF_runs.push_back({c, max_run, 0, 0});
+                    LF_runs.push_back({c, curr_len, 0, 0});
                     L_block_indices[c].push_back(i++);
+                    curr_len = 0;
                 }
-
-                if (length % max_run != 0)
-                {
-                    LF_runs.push_back({c, length % max_run, 0, 0});
-                    L_block_indices[c].push_back(i++);
-                }
+                curr_len++;
             }
-            else {
-                LF_runs.push_back({c, length, 0, 0});
-                L_block_indices[c].push_back(i++);
-            }    
-            n+=length;
+            LF_runs.push_back({c, curr_len, 0, 0});
+            L_block_indices[c].push_back(i++);
+
         }
         r = LF_runs.size();
 
@@ -126,7 +128,7 @@ public:
                 LF_runs[pos].offset = F_seen - L_seen;
 
                 F_seen += LF_runs[pos].length;
-            
+
                 while (curr_L_num < r && F_seen >= L_seen + LF_runs[curr_L_num].length) 
                 {
                     L_seen += LF_runs[curr_L_num].length;
@@ -135,6 +137,8 @@ public:
             }
         }
 
+        cout << "True r: " << true_r << endl;
+        cout << "BV r: " << bv_r << endl;
         mem_stats();
     }
 
