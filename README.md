@@ -37,6 +37,12 @@ Builds the data structure on the example fasta file given, creating [filename].r
 python3 rif ../data/example_fasta/example.fasta -f
 ```
 
+If using row splitting from [r-permute](https://github.com/drnatebrown/r-permute) to bound LF to $O(1)$ and $O(r)$-space, use the `-d` option. First, copy the output of r-permute to rename using the split parameter.
+```console
+cp <FASTA>.d_col <FASTA>.<d>_col
+python3 rif ../data/example_fasta/example.fasta -f -d <d>
+```
+
 ### Queries
 The data structure should be imported and loaded as decribed in r-index-f.hpp once built, and supports LF computation needed to perform count queries.
 ```console
