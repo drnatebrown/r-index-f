@@ -128,6 +128,7 @@ struct Args
   size_t th = 1; // number of threads
   bool is_fasta = false; // read a fasta file
   size_t d = 0; // Use run-splitting [must have bitvector marking runs present]
+  std::string pattern = "";
 };
 
 void parseArgs(int argc, char *const argv[], Args &arg)
@@ -137,7 +138,7 @@ void parseArgs(int argc, char *const argv[], Args &arg)
   extern int optind;
 
   std::string sarg;
-  while ((c = getopt(argc, argv, "w:smcfl:rhp:t:d:")) != -1)
+  while ((c = getopt(argc, argv, "w:smcfl:rhp:t:d:p:")) != -1)
   {
     switch (c)
     {
@@ -153,6 +154,9 @@ void parseArgs(int argc, char *const argv[], Args &arg)
     case 't':
       sarg.assign(optarg);
       arg.th = stoi(sarg);
+      break;
+    case 'p':
+      arg.pattern.assign(optarg);
       break;
     case 'f':
       arg.is_fasta = true;

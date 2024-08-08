@@ -13,3 +13,11 @@ target_include_directories(rif_tests PUBLIC    "../../include/r_index_f"
                                         "../../include/block_compression" 
                                         )
 target_compile_options(rif_tests PUBLIC "-std=c++17")
+
+add_executable(count_query count_query.cpp)
+target_link_libraries(count_query sdsl divsufsort divsufsort64 malloc_count)
+target_include_directories(count_query PUBLIC    "../../include/r_index_f" 
+                                        "../../include/common"
+                                        "../../include/block_compression" 
+                                        )
+target_compile_options(count_query PUBLIC "-std=c++17")
