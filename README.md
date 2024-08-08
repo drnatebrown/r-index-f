@@ -44,9 +44,9 @@ python3 rif ../data/example_fasta/example.fasta -f -d <d>
 ```
 
 ### Queries
-The data structure should be imported and loaded as decribed in r-index-f.hpp once built, and supports LF computation needed to perform count queries.
+The data structure should be imported and loaded as decribed in r-index-f.hpp once built, and supports LF computation needed to perform count queries. An example command prints the count query for a pattern to stdout, assuming the table was built using default settings.
 ```console
-[test query scripts in progress]
+./test/src/count_query
 ```
 
 
