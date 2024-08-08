@@ -124,9 +124,10 @@ struct Args
   std::string filename = "";
   bool store = false; // store the data structure in the file
   bool memo  = false; // print the memory usage
-  bool rle   = false; // outpt RLBWT
+  bool rle   = true; // outpt RLBWT
   size_t th = 1; // number of threads
   bool is_fasta = false; // read a fasta file
+  size_t d = 0; // Use run-splitting [must have bitvector marking runs present]
 };
 
 void parseArgs(int argc, char *const argv[], Args &arg)
@@ -136,7 +137,7 @@ void parseArgs(int argc, char *const argv[], Args &arg)
   extern int optind;
 
   std::string sarg;
-  while ((c = getopt(argc, argv, "w:smcfl:rhp:t:")) != -1)
+  while ((c = getopt(argc, argv, "w:smcfl:rhp:t:d:")) != -1)
   {
     switch (c)
     {
@@ -155,6 +156,10 @@ void parseArgs(int argc, char *const argv[], Args &arg)
       break;
     case 'f':
       arg.is_fasta = true;
+      break;
+    case 'd':
+      sarg.assign(optarg);
+      arg.d = stoi(sarg);
       break;
     case '?':
       error("Unknown option.\n");
