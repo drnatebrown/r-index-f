@@ -37,18 +37,24 @@ Builds the data structure on the example fasta file given, creating [filename].r
 python3 rif ../data/example_fasta/example.fasta -f
 ```
 
-If using row splitting from [r-permute](https://github.com/drnatebrown/r-permute) to bound LF to $O(1)$ and $O(r)$-space, use the `-d` option. First, copy the output of r-permute to rename using the split parameter.
+If using row splitting from [r-permute](https://github.com/drnatebrown/r-permute) to bound LF to $O(1)$ and $O(r)$-space, use the `-d` option (`<SPLIT_PARAM> = d`). First, copy the output of r-permute to rename using the split parameter.
 ```console
-cp <FASTA>.d_col <FASTA>.<d>_col
+cp example.fasta.d_col example.fasta.<SPLIT_PARAM>_col
 python3 rif ../data/example_fasta/example.fasta -f -d <d>
 ```
 
 ### Queries
 The data structure should be imported and loaded as decribed in r-index-f.hpp once built, and supports LF computation needed to perform count queries. An example command prints the count query for a pattern to stdout, assuming the table was built using default settings.
+
+To give the pattern explicitly, i.e. `"GATTACAT"`:
 ```console
-./test/src/count_query
+./test/src/count_query ../data/example_fasta/example.fasta -p GATTACAT
 ```
 
+To give the pattern from a file, i.e. `"pattern.txt"`, use the -f option:
+```console
+./test/src/count_query ../data/example_fasta/example.fasta -f -p pattern.txt
+```
 
 # External Dependencies
 
