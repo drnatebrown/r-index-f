@@ -51,7 +51,7 @@ To give the pattern explicitly, i.e. `"GATTACAT"`:
 ./test/src/count_query ../data/example_fasta/example.fasta -p GATTACAT
 ```
 
-To give the pattern from a file, i.e. `"pattern.txt"`, use the -f option:
+To give multiple pattern from a file (one per line), i.e. `"pattern.txt"`, use the -f option:
 ```console
 ./test/src/count_query ../data/example_fasta/example.fasta -f -p pattern.txt
 ```
