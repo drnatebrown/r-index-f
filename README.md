@@ -37,18 +37,24 @@ Builds the data structure on the example fasta file given, creating [filename].r
 python3 rif ../data/example_fasta/example.fasta -f
 ```
 
-If using row splitting from [r-permute](https://github.com/drnatebrown/r-permute) to bound LF to $O(1)$ and $O(r)$-space, use the `-d` option. First, copy the output of r-permute to rename using the split parameter.
+If using row splitting from [r-permute](https://github.com/drnatebrown/r-permute) to bound LF to $O(1)$ and $O(r)$-space, use the `-d` option (`<SPLIT_PARAM> = d`). First, copy the output of r-permute to rename using the split parameter.
 ```console
-cp <FASTA>.d_col <FASTA>.<d>_col
+cp example.fasta.d_col example.fasta.<SPLIT_PARAM>_col
 python3 rif ../data/example_fasta/example.fasta -f -d <d>
 ```
 
 ### Queries
-The data structure should be imported and loaded as decribed in r-index-f.hpp once built, and supports LF computation needed to perform count queries.
+The data structure should be imported and loaded as decribed in r-index-f.hpp once built, and supports LF computation needed to perform count queries. An example command prints the count query for a pattern to stdout, assuming the table was built using default settings.
+
+To give the pattern explicitly, i.e. `"GATTACAT"`:
 ```console
-[test query scripts in progress]
+./test/src/count_query ../data/example_fasta/example.fasta -p GATTACAT
 ```
 
+To give multiple pattern from a file (one per line), i.e. `"pattern.txt"`, use the -f option:
+```console
+./test/src/count_query ../data/example_fasta/example.fasta -f -p pattern.txt
+```
 
 # External Dependencies
 
@@ -76,7 +82,7 @@ The data structure should be imported and loaded as decribed in r-index-f.hpp on
 # Citation
 Please cite the original paper by Nishimoto and Tabei [1] if you refer only to their data structure
 
-If you use the implementation in an academic setting, please cite both the former as well as RLBWT Tricks [2].
+If you use the implementation in an academic setting, or the style of our data structure, please cite both the former as well as RLBWT Tricks [2].
  
 # References
 
