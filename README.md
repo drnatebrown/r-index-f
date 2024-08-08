@@ -76,7 +76,7 @@ The data structure should be imported and loaded as decribed in r-index-f.hpp on
 # Citation
 Please cite the original paper by Nishimoto and Tabei [1] if you refer only to their data structure
 
-If you use the implementation in an academic setting, please cite both the former as well as RLBWT Tricks [2].
+If you use the implementation in an academic setting, or the style of our data structure, please cite both the former as well as RLBWT Tricks [2].
  
 # References
 
